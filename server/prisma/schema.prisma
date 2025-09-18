@@ -1,0 +1,576 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Пользователи и роли
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         UserRole @default(OPERATOR)
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  userSessions     UserSession[]
+  createdRecipes   Recipe[]      @relation("RecipeCreator")
+  managedWarehouses Warehouse[]  @relation("WarehouseManager")
+  sales            Sale[]        @relation("SaleCashier")
+  inventories      Inventory[]   @relation("InventoryResponsible")
+  createdInventories Inventory[] @relation("InventoryCreator")
+  approvedInventories Inventory[] @relation("InventoryApprover")
+  createdDocuments Document[]    @relation("DocumentCreator")
+  approvedDocuments Document[]   @relation("DocumentApprover")
+  productionLogs   ProductionLog[] @relation("ProductionLogCreator")
+  reports          Report[]      @relation("ReportCreator")
+  inventoryItems   InventoryItem[] @relation("InventoryItemCounter")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
+
+  @@map("user_role")
+}
+
+model UserSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  refreshToken String   @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Связи
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+// Организационная структура
+model Warehouse {
+  id        Int           @id @default(autoincrement())
+  name      String
+  type      WarehouseType
+  address   String?
+  phone     String?
+  managerId Int?          @map("manager_id")
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  // Связи
+  manager            User?               @relation("WarehouseManager", fields: [managerId], references: [id])
+  stockBalances      StockBalance[]
+  stockMovements     StockMovement[]
+  documentsFrom      Document[]          @relation("DocumentWarehouseFrom")
+  documentsTo        Document[]          @relation("DocumentWarehouseTo")
+  inventories        Inventory[]
+  sales              Sale[]
+  productionLogs     ProductionLog[]
+  warehouseMenuItems WarehouseMenuItem[]
+
+  @@map("warehouses")
+}
+
+enum WarehouseType {
+  MAIN
+  KITCHEN
+  RETAIL
+
+  @@map("warehouse_type")
+}
+
+model Supplier {
+  id             Int       @id @default(autoincrement())
+  name           String
+  legalName      String?   @map("legal_name")
+  inn            String?
+  kpp            String?
+  address        String?
+  phone          String?
+  email          String?
+  contactPerson  String?   @map("contact_person")
+  paymentTerms   Int       @default(0) @map("payment_terms")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Связи
+  documents Document[]
+
+  @@map("suppliers")
+}
+
+// Номенклатура
+model Category {
+  id          Int        @id @default(autoincrement())
+  name        String
+  parentId    Int?       @map("parent_id")
+  description String?
+  sortOrder   Int        @default(0) @map("sort_order")
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  // Связи
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Unit {
+  id               Int      @id @default(autoincrement())
+  name             String
+  shortName        String   @map("short_name")
+  type             UnitType
+  baseUnitId       Int?     @map("base_unit_id")
+  conversionFactor Decimal  @default(1.0) @map("conversion_factor") @db.Decimal(10, 4)
+
+  // Связи
+  baseUnit         Unit?              @relation("UnitConversion", fields: [baseUnitId], references: [id])
+  derivedUnits     Unit[]             @relation("UnitConversion")
+  products         Product[]
+  recipeIngredients RecipeIngredient[]
+  documentItems    DocumentItem[]
+
+  @@map("units")
+}
+
+enum UnitType {
+  WEIGHT
+  VOLUME
+  PIECE
+  LENGTH
+
+  @@map("unit_type")
+}
+
+model Product {
+  id                     Int      @id @default(autoincrement())
+  name                   String
+  article                String?  @unique
+  barcode                String?
+  categoryId             Int?     @map("category_id")
+  unitId                 Int      @map("unit_id")
+  shelfLifeDays          Int?     @map("shelf_life_days")
+  storageTemperatureMin  Decimal? @map("storage_temperature_min") @db.Decimal(4, 1)
+  storageTemperatureMax  Decimal? @map("storage_temperature_max") @db.Decimal(4, 1)
+  storageConditions      String?  @map("storage_conditions")
+  description            String?
+  isActive               Boolean  @default(true) @map("is_active")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  category          Category?          @relation(fields: [categoryId], references: [id])
+  unit              Unit               @relation(fields: [unitId], references: [id])
+  recipeIngredients RecipeIngredient[]
+  stockBalances     StockBalance[]
+  stockMovements    StockMovement[]
+  documentItems     DocumentItem[]
+  inventoryItems    InventoryItem[]
+  productionLogItems ProductionLogItem[]
+
+  @@map("products")
+}
+
+// Рецептуры
+model Recipe {
+  id             Int     @id @default(autoincrement())
+  name           String
+  description    String?
+  portionSize    Decimal @map("portion_size") @db.Decimal(8, 3)
+  cookingTime    Int?    @map("cooking_time")
+  difficultyLevel Int?   @map("difficulty_level")
+  instructions   String?
+  costPrice      Decimal? @map("cost_price") @db.Decimal(10, 2)
+  marginPercent  Decimal @default(0) @map("margin_percent") @db.Decimal(5, 2)
+  sellingPrice   Decimal? @map("selling_price") @db.Decimal(10, 2)
+  isActive       Boolean @default(true) @map("is_active")
+  createdById    Int?    @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  createdBy    User?              @relation("RecipeCreator", fields: [createdById], references: [id])
+  ingredients  RecipeIngredient[]
+  menuItems    MenuItem[]
+  productionLogs ProductionLog[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id          Int     @id @default(autoincrement())
+  recipeId    Int     @map("recipe_id")
+  productId   Int     @map("product_id")
+  quantity    Decimal @db.Decimal(10, 4)
+  unitId      Int     @map("unit_id")
+  costPerUnit Decimal? @map("cost_per_unit") @db.Decimal(10, 4)
+  isMain      Boolean @default(false) @map("is_main")
+  sortOrder   Int     @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  recipe  Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  unit    Unit    @relation(fields: [unitId], references: [id])
+
+  @@map("recipe_ingredients")
+}
+
+// Меню
+model MenuCategory {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  menuItems MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  recipeId    Int?    @map("recipe_id")
+  categoryId  Int?    @map("category_id")
+  price       Decimal @db.Decimal(10, 2)
+  costPrice   Decimal? @map("cost_price") @db.Decimal(10, 2)
+  imageUrl    String? @map("image_url")
+  isAvailable Boolean @default(true) @map("is_available")
+  isActive    Boolean @default(true) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  recipe             Recipe?             @relation(fields: [recipeId], references: [id])
+  category           MenuCategory?       @relation(fields: [categoryId], references: [id])
+  warehouseMenuItems WarehouseMenuItem[]
+  saleItems          SaleItem[]
+
+  @@map("menu_items")
+}
+
+model WarehouseMenuItem {
+  id            Int     @id @default(autoincrement())
+  warehouseId   Int     @map("warehouse_id")
+  menuItemId    Int     @map("menu_item_id")
+  isAvailable   Boolean @default(true) @map("is_available")
+  priceOverride Decimal? @map("price_override") @db.Decimal(10, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Связи
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, menuItemId])
+  @@map("warehouse_menu_items")
+}
+
+// Складские операции
+model Document {
+  id              Int            @id @default(autoincrement())
+  number          String         @unique
+  type            DocumentType
+  date            DateTime       @db.Date
+  supplierId      Int?           @map("supplier_id")
+  warehouseFromId Int?           @map("warehouse_from_id")
+  warehouseToId   Int?           @map("warehouse_to_id")
+  status          DocumentStatus @default(DRAFT)
+  totalAmount     Decimal        @default(0) @map("total_amount") @db.Decimal(12, 2)
+  notes           String?
+  createdById     Int?           @map("created_by")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Связи
+  supplier      Supplier?       @relation(fields: [supplierId], references: [id])
+  warehouseFrom Warehouse?      @relation("DocumentWarehouseFrom", fields: [warehouseFromId], references: [id])
+  warehouseTo   Warehouse?      @relation("DocumentWarehouseTo", fields: [warehouseToId], references: [id])
+  createdBy     User?           @relation("DocumentCreator", fields: [createdById], references: [id])
+  approvedBy    User?           @relation("DocumentApprover", fields: [approvedById], references: [id])
+  items         DocumentItem[]
+  stockMovements StockMovement[]
+
+  @@map("documents")
+}
+
+enum DocumentType {
+  RECEIPT
+  TRANSFER
+  WRITEOFF
+  INVENTORY_ADJUSTMENT
+
+  @@map("document_type")
+}
+
+enum DocumentStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+
+  @@map("document_status")
+}
+
+model DocumentItem {
+  id          Int      @id @default(autoincrement())
+  documentId  Int      @map("document_id")
+  productId   Int      @map("product_id")
+  quantity    Decimal  @db.Decimal(10, 4)
+  unitId      Int      @map("unit_id")
+  price       Decimal  @db.Decimal(10, 4)
+  total       Decimal  @db.Decimal(12, 2)
+  expiryDate  DateTime? @map("expiry_date") @db.Date
+  batchNumber String?  @map("batch_number")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+  unit     Unit     @relation(fields: [unitId], references: [id])
+
+  @@map("document_items")
+}
+
+model StockMovement {
+  id          Int          @id @default(autoincrement())
+  warehouseId Int          @map("warehouse_id")
+  productId   Int          @map("product_id")
+  documentId  Int?         @map("document_id")
+  type        MovementType
+  quantity    Decimal      @db.Decimal(10, 4)
+  price       Decimal      @db.Decimal(10, 4)
+  batchNumber String?      @map("batch_number")
+  expiryDate  DateTime?    @map("expiry_date") @db.Date
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  // Связи
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+  document  Document? @relation(fields: [documentId], references: [id])
+
+  @@map("stock_movements")
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  WRITEOFF
+  PRODUCTION_USE
+
+  @@map("movement_type")
+}
+
+model StockBalance {
+  id               Int      @id @default(autoincrement())
+  warehouseId      Int      @map("warehouse_id")
+  productId        Int      @map("product_id")
+  quantity         Decimal  @default(0) @db.Decimal(10, 4)
+  avgPrice         Decimal  @default(0) @map("avg_price") @db.Decimal(10, 4)
+  totalValue       Decimal  @default(0) @map("total_value") @db.Decimal(12, 2)
+  lastMovementDate DateTime? @map("last_movement_date")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@unique([warehouseId, productId])
+  @@map("stock_balances")
+}
+
+// Инвентаризация
+model Inventory {
+  id                Int             @id @default(autoincrement())
+  warehouseId       Int             @map("warehouse_id")
+  number            String          @unique
+  date              DateTime        @db.Date
+  status            InventoryStatus @default(DRAFT)
+  responsiblePersonId Int?          @map("responsible_person_id")
+  notes             String?
+  createdById       Int?            @map("created_by")
+  approvedById      Int?            @map("approved_by")
+  approvedAt        DateTime?       @map("approved_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  // Связи
+  warehouse         Warehouse       @relation(fields: [warehouseId], references: [id])
+  responsiblePerson User?           @relation("InventoryResponsible", fields: [responsiblePersonId], references: [id])
+  createdBy         User?           @relation("InventoryCreator", fields: [createdById], references: [id])
+  approvedBy        User?           @relation("InventoryApprover", fields: [approvedById], references: [id])
+  items             InventoryItem[]
+
+  @@map("inventories")
+}
+
+enum InventoryStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+
+  @@map("inventory_status")
+}
+
+model InventoryItem {
+  id               Int      @id @default(autoincrement())
+  inventoryId      Int      @map("inventory_id")
+  productId        Int      @map("product_id")
+  expectedQuantity Decimal  @default(0) @map("expected_quantity") @db.Decimal(10, 4)
+  actualQuantity   Decimal? @map("actual_quantity") @db.Decimal(10, 4)
+  price            Decimal  @db.Decimal(10, 4)
+  notes            String?
+  countedById      Int?     @map("counted_by")
+  countedAt        DateTime? @map("counted_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Связи
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+  countedBy User?     @relation("InventoryItemCounter", fields: [countedById], references: [id])
+
+  @@map("inventory_items")
+}
+
+// Продажи
+model Sale {
+  id            Int           @id @default(autoincrement())
+  warehouseId   Int           @map("warehouse_id")
+  number        String        @unique
+  date          DateTime
+  totalAmount   Decimal       @default(0) @map("total_amount") @db.Decimal(12, 2)
+  discountAmount Decimal      @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  taxAmount     Decimal       @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  paymentMethod PaymentMethod @default(CASH) @map("payment_method")
+  cashierId     Int?          @map("cashier_id")
+  customerName  String?       @map("customer_name")
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  // Связи
+  warehouse Warehouse  @relation(fields: [warehouseId], references: [id])
+  cashier   User?      @relation("SaleCashier", fields: [cashierId], references: [id])
+  items     SaleItem[]
+
+  @@map("sales")
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  MIXED
+
+  @@map("payment_method")
+}
+
+model SaleItem {
+  id              Int     @id @default(autoincrement())
+  saleId          Int     @map("sale_id")
+  menuItemId      Int     @map("menu_item_id")
+  quantity        Decimal @db.Decimal(8, 3)
+  price           Decimal @db.Decimal(10, 2)
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  total           Decimal @db.Decimal(12, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Связи
+  sale     Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("sale_items")
+}
+
+model ProductionLog {
+  id          Int      @id @default(autoincrement())
+  warehouseId Int      @map("warehouse_id")
+  recipeId    Int      @map("recipe_id")
+  quantity    Decimal  @db.Decimal(8, 3)
+  totalCost   Decimal  @map("total_cost") @db.Decimal(12, 2)
+  producedAt  DateTime @map("produced_at")
+  createdById Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id])
+  recipe    Recipe              @relation(fields: [recipeId], references: [id])
+  createdBy User?               @relation("ProductionLogCreator", fields: [createdById], references: [id])
+  items     ProductionLogItem[]
+
+  @@map("production_logs")
+}
+
+model ProductionLogItem {
+  id               Int     @id @default(autoincrement())
+  productionLogId  Int     @map("production_log_id")
+  productId        Int     @map("product_id")
+  quantityUsed     Decimal @map("quantity_used") @db.Decimal(10, 4)
+  unitPrice        Decimal @map("unit_price") @db.Decimal(10, 4)
+  totalCost        Decimal @map("total_cost") @db.Decimal(12, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Связи
+  productionLog ProductionLog @relation(fields: [productionLogId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("production_log_items")
+}
+
+// Отчеты
+model Report {
+  id          Int        @id @default(autoincrement())
+  name        String
+  type        ReportType
+  parameters  Json?
+  data        Json?
+  periodStart DateTime?  @map("period_start") @db.Date
+  periodEnd   DateTime?  @map("period_end") @db.Date
+  createdById Int?       @map("created_by")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  // Связи
+  createdBy User? @relation("ReportCreator", fields: [createdById], references: [id])
+
+  @@map("reports")
+}
+
+enum ReportType {
+  STOCK
+  SALES
+  PROFITABILITY
+  ABC_ANALYSIS
+  INVENTORY_VARIANCE
+  COST_ANALYSIS
+
+  @@map("report_type")
+}
