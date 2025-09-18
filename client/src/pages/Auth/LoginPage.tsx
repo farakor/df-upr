@@ -1,26 +1,13 @@
 import React, { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import {
-  Box,
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  Typography,
-  Container,
-  Alert,
-  InputAdornment,
-  IconButton,
-  CircularProgress,
-} from '@mui/material';
-import {
-  Visibility,
-  VisibilityOff,
-  Email,
-  Lock,
-} from '@mui/icons-material';
+import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginCredentials } from '@/types/auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export const LoginPage: React.FC = () => {
   const { state, login } = useAuth();
@@ -78,155 +65,117 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'grey.100',
-        backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      }}
-    >
-      <Container maxWidth="sm">
-        <Card
-          sx={{
-            boxShadow: 4,
-            borderRadius: 3,
-            overflow: 'hidden',
-          }}
-        >
-          <Box
-            sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              py: 4,
-              px: 3,
-              textAlign: 'center',
-            }}
-          >
-            <Box
-              sx={{
-                width: 60,
-                height: 60,
-                bgcolor: 'rgba(255, 255, 255, 0.2)',
-                borderRadius: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-              }}
-            >
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="w-full max-w-md">
+        <Card className="shadow-xl">
+          {/* Заголовок */}
+          <CardHeader className="text-center space-y-4 pb-6">
+            <div className="mx-auto w-16 h-16 bg-primary rounded-xl flex items-center justify-center text-primary-foreground text-2xl font-bold">
               DF
-            </Box>
-            <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-              DF-UPR
-            </Typography>
-            <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-              Система управления столовыми
-            </Typography>
-          </Box>
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">DF-UPR</CardTitle>
+              <CardDescription className="text-base">
+                Система управления столовыми
+              </CardDescription>
+            </div>
+          </CardHeader>
 
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" component="h2" sx={{ mb: 3, textAlign: 'center', fontWeight: 600 }}>
-              Вход в систему
-            </Typography>
+          <CardContent className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold">Вход в систему</h2>
+            </div>
 
             {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
-            <Box component="form" onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange('email')}
-                margin="normal"
-                required
-                autoComplete="email"
-                autoFocus
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Email color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 2 }}
-              />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@dfupr.com"
+                    value={formData.email}
+                    onChange={handleInputChange('email')}
+                    className="pl-10"
+                    required
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
+              </div>
 
-              <TextField
-                fullWidth
-                label="Пароль"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleInputChange('password')}
-                margin="normal"
-                required
-                autoComplete="current-password"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock color="action" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={handleTogglePasswordVisibility}
-                        edge="end"
-                        aria-label="показать пароль"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 3 }}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="password">Пароль</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Введите пароль"
+                    value={formData.password}
+                    onChange={handleInputChange('password')}
+                    className="pl-10 pr-10"
+                    required
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={handleTogglePasswordVisibility}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="sr-only">
+                      {showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                    </span>
+                  </Button>
+                </div>
+              </div>
 
               <Button
                 type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
+                className="w-full"
+                size="lg"
                 disabled={isLoading}
-                sx={{
-                  py: 1.5,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  borderRadius: 2,
-                }}
               >
                 {isLoading ? (
-                  <CircularProgress size={24} color="inherit" />
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Вход...
+                  </>
                 ) : (
                   'Войти'
                 )}
               </Button>
-            </Box>
+            </form>
 
             {/* Демо данные для входа */}
-            <Box sx={{ mt: 4, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Демо данные для входа:
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Администратор:</strong> admin@dfupr.com / admin123
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Менеджер:</strong> manager@dfupr.com / manager123
-              </Typography>
-            </Box>
+            <div className="rounded-lg bg-muted p-4 space-y-2">
+              <h3 className="text-sm font-medium">Демо данные для входа:</h3>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <div>
+                  <strong>Администратор:</strong> admin@dfupr.com / admin123
+                </div>
+                <div>
+                  <strong>Менеджер:</strong> manager@dfupr.com / manager123
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      </Container>
-    </Box>
+      </div>
+    </div>
   );
 };

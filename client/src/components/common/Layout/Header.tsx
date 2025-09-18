@@ -1,52 +1,34 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box,
-  IconButton,
-  Menu,
-  MenuItem,
-  Avatar,
-  Typography,
-  Divider,
-  ListItemIcon,
-  Badge,
-  Tooltip,
-} from '@mui/material';
-import {
-  AccountCircle,
-  Logout,
+  Bell,
+  LogOut,
   Settings,
-  Notifications,
-  Person,
-} from '@mui/icons-material';
+  User,
+  ChevronDown,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
+import { cn } from '@/utils/cn';
 
 export const Header: React.FC = () => {
   const navigate = useNavigate();
   const { state, logout } = useAuth();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleProfileClick = () => {
-    handleMenuClose();
+    setDropdownOpen(false);
     navigate('/profile');
   };
 
   const handleSettingsClick = () => {
-    handleMenuClose();
+    setDropdownOpen(false);
     navigate('/settings');
   };
 
   const handleLogout = async () => {
-    handleMenuClose();
+    setDropdownOpen(false);
     try {
       logout();
       navigate('/login');
@@ -60,128 +42,114 @@ export const Header: React.FC = () => {
   };
 
   const getRoleDisplayName = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'Администратор';
-      case 'manager':
-        return 'Менеджер';
-      case 'operator':
-        return 'Оператор';
-      case 'viewer':
-        return 'Наблюдатель';
-      default:
-        return role;
-    }
+    const roleLabels: Record<string, string> = {
+      admin: 'Администратор',
+      manager: 'Менеджер',
+      operator: 'Оператор',
+      viewer: 'Наблюдатель',
+    };
+    return roleLabels[role] || role;
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+    <div className="flex w-full items-center justify-between">
       {/* Заголовок страницы */}
-      <Box sx={{ flexGrow: 1 }}>
-        <Typography variant="h6" component="h1" sx={{ fontWeight: 600 }}>
+      <div className="flex-1">
+        <h1 className="text-lg font-semibold text-foreground">
           Система управления столовыми
-        </Typography>
-      </Box>
+        </h1>
+      </div>
 
       {/* Панель действий */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <div className="flex items-center gap-2">
         {/* Уведомления */}
-        <Tooltip title="Уведомления">
-          <IconButton color="inherit" size="large">
-            <Badge badgeContent={3} color="error">
-              <Notifications />
-            </Badge>
-          </IconButton>
-        </Tooltip>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-xs text-destructive-foreground flex items-center justify-center">
+            3
+          </span>
+          <span className="sr-only">Уведомления</span>
+        </Button>
 
         {/* Профиль пользователя */}
         {state.user && (
-          <>
-            <Tooltip title="Профиль пользователя">
-              <IconButton
-                onClick={handleMenuOpen}
-                size="large"
-                sx={{ ml: 1 }}
-                color="inherit"
-              >
-                <Avatar
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    bgcolor: 'primary.main',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  {getInitials(state.user.firstName, state.user.lastName)}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
-
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-              onClick={handleMenuClose}
-              PaperProps={{
-                elevation: 3,
-                sx: {
-                  mt: 1.5,
-                  minWidth: 220,
-                  '& .MuiAvatar-root': {
-                    width: 32,
-                    height: 32,
-                    ml: -0.5,
-                    mr: 1,
-                  },
-                },
-              }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 px-3"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
             >
-              {/* Информация о пользователе */}
-              <Box sx={{ px: 2, py: 1.5 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                {getInitials(state.user.firstName, state.user.lastName)}
+              </div>
+              <div className="hidden md:block text-left">
+                <div className="text-sm font-medium">
                   {state.user.firstName} {state.user.lastName}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {state.user.email}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
+                </div>
+                <div className="text-xs text-muted-foreground">
                   {getRoleDisplayName(state.user.role)}
-                </Typography>
-              </Box>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
 
-              <Divider />
+            {/* Выпадающее меню */}
+            {dropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setDropdownOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-md border bg-popover p-1 shadow-md">
+                  {/* Информация о пользователе */}
+                  <div className="px-3 py-2 border-b">
+                    <div className="font-medium text-sm">
+                      {state.user.firstName} {state.user.lastName}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {state.user.email}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {getRoleDisplayName(state.user.role)}
+                    </div>
+                  </div>
 
-              {/* Пункты меню */}
-              <MenuItem onClick={handleProfileClick}>
-                <ListItemIcon>
-                  <Person fontSize="small" />
-                </ListItemIcon>
-                Профиль
-              </MenuItem>
+                  {/* Пункты меню */}
+                  <div className="py-1">
+                    <button
+                      onClick={handleProfileClick}
+                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <User className="h-4 w-4" />
+                      Профиль
+                    </button>
 
-              {(state.user.role === 'admin' || state.user.role === 'manager') && (
-                <MenuItem onClick={handleSettingsClick}>
-                  <ListItemIcon>
-                    <Settings fontSize="small" />
-                  </ListItemIcon>
-                  Настройки
-                </MenuItem>
-              )}
+                    {(state.user.role === 'admin' || state.user.role === 'manager') && (
+                      <button
+                        onClick={handleSettingsClick}
+                        className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Настройки
+                      </button>
+                    )}
 
-              <Divider />
+                    <div className="my-1 border-t" />
 
-              <MenuItem onClick={handleLogout}>
-                <ListItemIcon>
-                  <Logout fontSize="small" />
-                </ListItemIcon>
-                Выйти
-              </MenuItem>
-            </Menu>
-          </>
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Выйти
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };

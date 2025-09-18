@@ -1,120 +1,55 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import {
-  Box,
-  Drawer,
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
-import { Menu as MenuIcon } from '@mui/icons-material';
+import { Menu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-
-const DRAWER_WIDTH = 280;
+import { cn } from '@/utils/cn';
 
 export const MainLayout: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      {/* Боковое меню */}
-      <Box
-        component="nav"
-        sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}
-      >
-        {/* Мобильное меню */}
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Лучшая производительность на мобильных
-          }}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: DRAWER_WIDTH,
-            },
-          }}
-        >
-          <Sidebar onItemClick={() => setMobileOpen(false)} />
-        </Drawer>
+    <div className="flex h-screen bg-background">
+      {/* Мобильное меню - overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        {/* Десктопное меню */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: DRAWER_WIDTH,
-            },
-          }}
-          open
-        >
-          <Sidebar />
-        </Drawer>
-      </Box>
+      {/* Боковое меню */}
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 w-72 transform bg-card border-r transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <Sidebar onItemClick={() => setSidebarOpen(false)} />
+      </div>
 
       {/* Основной контент */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Заголовок */}
-        <AppBar
-          position="fixed"
-          sx={{
-            width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-            ml: { md: `${DRAWER_WIDTH}px` },
-            bgcolor: 'background.paper',
-            color: 'text.primary',
-            boxShadow: 1,
-          }}
-        >
-          <Toolbar>
-            <IconButton
-              color="inherit"
-              aria-label="открыть меню"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: 'none' } }}
+        <header className="bg-background border-b px-4 py-3 lg:px-6">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(true)}
             >
-              <MenuIcon />
-            </IconButton>
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Открыть меню</span>
+            </Button>
             <Header />
-          </Toolbar>
-        </AppBar>
+          </div>
+        </header>
 
         {/* Контент страницы */}
-        <Box
-          sx={{
-            flexGrow: 1,
-            p: 3,
-            mt: 8, // Отступ для AppBar
-            bgcolor: 'background.default',
-          }}
-        >
+        <main className="flex-1 overflow-y-auto bg-muted/30 p-4 lg:p-6">
           <Outlet />
-        </Box>
-      </Box>
-    </Box>
+        </main>
+      </div>
+    </div>
   );
 };

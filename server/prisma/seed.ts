@@ -8,7 +8,9 @@ async function main() {
 
   // Создание единиц измерения
   console.log('📏 Создание единиц измерения...');
-  const units = await Promise.all([
+  
+  // Сначала создаем базовые единицы
+  const baseUnits = await Promise.all([
     prisma.unit.upsert({
       where: { id: 1 },
       update: {},
@@ -28,6 +30,19 @@ async function main() {
       },
     }),
     prisma.unit.upsert({
+      where: { id: 4 },
+      update: {},
+      create: {
+        name: 'Литр',
+        shortName: 'л',
+        type: UnitType.VOLUME,
+      },
+    }),
+  ]);
+
+  // Затем создаем производные единицы
+  const derivedUnits = await Promise.all([
+    prisma.unit.upsert({
       where: { id: 3 },
       update: {},
       create: {
@@ -36,15 +51,6 @@ async function main() {
         type: UnitType.WEIGHT,
         baseUnitId: 2,
         conversionFactor: 0.001,
-      },
-    }),
-    prisma.unit.upsert({
-      where: { id: 4 },
-      update: {},
-      create: {
-        name: 'Литр',
-        shortName: 'л',
-        type: UnitType.VOLUME,
       },
     }),
     prisma.unit.upsert({
@@ -59,6 +65,8 @@ async function main() {
       },
     }),
   ]);
+
+  const units = [...baseUnits, ...derivedUnits];
 
   // Создание администратора
   console.log('👤 Создание пользователей...');

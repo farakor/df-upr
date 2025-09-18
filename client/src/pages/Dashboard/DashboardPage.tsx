@@ -1,57 +1,42 @@
 import React from 'react';
 import {
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Paper,
-  Avatar,
-} from '@mui/material';
-import {
   TrendingUp,
-  Inventory,
-  Restaurant,
-  AttachMoney,
-} from '@mui/icons-material';
+  Package,
+  ChefHat,
+  DollarSign,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface StatCardProps {
   title: string;
   value: string;
   icon: React.ReactNode;
-  color: string;
   trend?: string;
+  description?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, trend }) => (
-  <Card sx={{ height: '100%' }}>
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, description }) => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <div className="h-4 w-4 text-muted-foreground">
+        {icon}
+      </div>
+    </CardHeader>
     <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Avatar
-          sx={{
-            bgcolor: color,
-            width: 56,
-            height: 56,
-            mr: 2,
-          }}
-        >
-          {icon}
-        </Avatar>
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h4" component="div" sx={{ fontWeight: 600 }}>
-            {value}
-          </Typography>
-          {trend && (
-            <Typography variant="body2" color="success.main">
-              {trend}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      <Typography variant="subtitle1" color="text.secondary">
-        {title}
-      </Typography>
+      <div className="text-2xl font-bold">{value}</div>
+      {trend && (
+        <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+          <TrendingUp className="h-3 w-3" />
+          {trend}
+        </p>
+      )}
+      {description && (
+        <p className="text-xs text-muted-foreground mt-1">
+          {description}
+        </p>
+      )}
     </CardContent>
   </Card>
 );
@@ -63,121 +48,114 @@ export const DashboardPage: React.FC = () => {
     {
       title: 'Выручка за сегодня',
       value: '₽ 45,230',
-      icon: <AttachMoney />,
-      color: '#4caf50',
+      icon: <DollarSign className="h-4 w-4" />,
       trend: '+12% к вчера',
+      description: 'Общая выручка за текущий день',
     },
     {
       title: 'Товаров в наличии',
       value: '1,234',
-      icon: <Inventory />,
-      color: '#2196f3',
+      icon: <Package className="h-4 w-4" />,
+      description: 'Количество товаров на складе',
     },
     {
       title: 'Блюд продано',
       value: '89',
-      icon: <Restaurant />,
-      color: '#ff9800',
+      icon: <ChefHat className="h-4 w-4" />,
       trend: '+5% к вчера',
+      description: 'Количество проданных блюд',
     },
     {
       title: 'Средний чек',
       value: '₽ 508',
-      icon: <TrendingUp />,
-      color: '#9c27b0',
+      icon: <TrendingUp className="h-4 w-4" />,
       trend: '+3% к вчера',
+      description: 'Средняя сумма заказа',
     },
   ];
 
+  const recentOperations = [
+    { action: 'Продажа', item: 'Борщ украинский', amount: '₽ 250', time: '10:30' },
+    { action: 'Поступление', item: 'Молоко 3.2%', amount: '50 л', time: '09:15' },
+    { action: 'Продажа', item: 'Котлета с пюре', amount: '₽ 320', time: '08:45' },
+    { action: 'Продажа', item: 'Салат Цезарь', amount: '₽ 180', time: '08:30' },
+    { action: 'Поступление', item: 'Хлеб белый', amount: '20 шт', time: '08:00' },
+  ];
+
   return (
-    <Box>
+    <div className="space-y-6">
       {/* Приветствие */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
           Добро пожаловать, {state.user?.firstName}!
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
+        </h1>
+        <p className="text-muted-foreground">
           Вот краткий обзор вашего бизнеса на сегодня
-        </Typography>
-      </Box>
+        </p>
+      </div>
 
       {/* Статистические карточки */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <StatCard {...stat} />
-          </Grid>
+          <StatCard key={index} {...stat} />
         ))}
-      </Grid>
+      </div>
 
       {/* Дополнительная информация */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              График продаж
-            </Typography>
-            <Box
-              sx={{
-                height: 300,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'grey.50',
-                borderRadius: 1,
-              }}
-            >
-              <Typography color="text.secondary">
-                График будет реализован в следующих этапах
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>График продаж</CardTitle>
+            <CardDescription>
+              Динамика продаж за последние 7 дней
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <div className="h-80 flex items-center justify-center bg-muted/30 rounded-lg">
+              <div className="text-center text-muted-foreground">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>График будет реализован в следующих этапах</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              Последние операции
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {[
-                { action: 'Продажа', item: 'Борщ украинский', amount: '₽ 250', time: '10:30' },
-                { action: 'Поступление', item: 'Молоко 3.2%', amount: '50 л', time: '09:15' },
-                { action: 'Продажа', item: 'Котлета с пюре', amount: '₽ 320', time: '08:45' },
-              ].map((operation, index) => (
-                <Box
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Последние операции</CardTitle>
+            <CardDescription>
+              Недавние продажи и поступления
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentOperations.map((operation, index) => (
+                <div
                   key={index}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    p: 2,
-                    bgcolor: 'grey.50',
-                    borderRadius: 1,
-                  }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
                 >
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium leading-none">
                       {operation.action}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    </p>
+                    <p className="text-sm text-muted-foreground">
                       {operation.item}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    </p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-sm font-medium">
                       {operation.amount}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    </p>
+                    <p className="text-sm text-muted-foreground">
                       {operation.time}
-                    </Typography>
-                  </Box>
-                </Box>
+                    </p>
+                  </div>
+                </div>
               ))}
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 };

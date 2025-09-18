@@ -6,6 +6,8 @@ export interface JwtPayload {
   email: string;
   role: string;
   type: 'access' | 'refresh';
+  exp?: number;
+  iat?: number;
 }
 
 export class JwtUtils {
@@ -16,7 +18,7 @@ export class JwtUtils {
     return jwt.sign(
       { ...payload, type: 'access' },
       config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn }
+      { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
     );
   }
 
@@ -27,7 +29,7 @@ export class JwtUtils {
     return jwt.sign(
       { ...payload, type: 'refresh' },
       config.jwtSecret,
-      { expiresIn: config.jwtRefreshExpiresIn }
+      { expiresIn: config.jwtRefreshExpiresIn } as jwt.SignOptions
     );
   }
 

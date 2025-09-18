@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { ApiResponse, ApiError } from '@/types/api';
 import { tokenStorage } from '@/services/storage/tokenStorage';
 import toast from 'react-hot-toast';
