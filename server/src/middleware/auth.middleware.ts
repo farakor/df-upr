@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User, UserRole } from '@prisma/client';
-import { AuthService } from '@/services/auth.service';
-import { UnauthorizedError, ForbiddenError } from '@/middleware/error.middleware';
+import { AuthService } from '../services/auth.service';
+import { UnauthorizedError, ForbiddenError } from './error.middleware';
 
 // Расширение типа Request для добавления пользователя
 declare global {

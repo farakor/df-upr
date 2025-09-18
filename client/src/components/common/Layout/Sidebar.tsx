@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   ChefHat,
   MenuSquare,
   Warehouse,
@@ -35,6 +36,12 @@ const menuItems: MenuItem[] = [
     label: 'Номенклатура',
     icon: <Package className="h-5 w-5" />,
     path: '/products',
+  },
+  {
+    id: 'categories',
+    label: 'Категории',
+    icon: <FolderTree className="h-5 w-5" />,
+    path: '/categories',
   },
   {
     id: 'recipes',

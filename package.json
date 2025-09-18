@@ -42,5 +42,8 @@
     "typescript"
   ],
   "author": "Фаррух Орипов",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.12.2"
+  }
 }

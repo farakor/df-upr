@@ -1,16 +1,18 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
+import productRoutes from './product.routes';
+import categoryRoutes from './category.routes';
+import unitRoutes from './unit.routes';
 
 const router = Router();
 
 // Подключение маршрутов
 router.use('/auth', authRoutes);
+router.use('/products', productRoutes);
+router.use('/categories', categoryRoutes);
+router.use('/units', unitRoutes);
 
 // Заглушки для будущих маршрутов
-router.get('/products', (req, res) => {
-  res.json({ message: 'Products API (в разработке)' });
-});
-
 router.get('/recipes', (req, res) => {
   res.json({ message: 'Recipes API (в разработке)' });
 });

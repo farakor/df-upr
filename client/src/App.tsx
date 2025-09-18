@@ -8,6 +8,8 @@ import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { MainLayout } from '@/components/common/Layout/MainLayout';
 import { LoginPage } from '@/pages/Auth/LoginPage';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
+import { ProductsListPage } from '@/pages/Products';
+import { CategoriesPage } from '@/pages/Categories';
 import { StyleTest } from '@/components/test/StyleTest';
 
 // Создание клиента React Query
@@ -44,8 +46,9 @@ function App() {
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardPage />} />
                 
-                {/* Заглушки для будущих страниц */}
-                <Route path="products" element={<div className="p-6">Номенклатура (в разработке)</div>} />
+                {/* Номенклатура */}
+                <Route path="products" element={<ProductsListPage />} />
+                <Route path="categories" element={<CategoriesPage />} />
                 <Route path="recipes" element={<div className="p-6">Рецептуры (в разработке)</div>} />
                 <Route path="menu" element={<div className="p-6">Меню (в разработке)</div>} />
                 <Route path="warehouse" element={<div className="p-6">Склад (в разработке)</div>} />
