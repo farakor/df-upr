@@ -97,3 +97,10 @@ export const categoryIdParamSchema = Joi.object({
       'any.required': 'ID категории обязательно для заполнения',
     }),
 });
+
+// Упрощенная функция валидации для совместимости
+export const validateMiddleware = (schema: Joi.ObjectSchema, target: 'body' | 'query' | 'params' = 'body') => {
+  const options: ValidationOptions = {};
+  options[target] = schema;
+  return validate(options);
+};

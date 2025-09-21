@@ -8,7 +8,19 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // CORS
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  corsOrigin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [
+    'http://localhost:5173',
+    'http://localhost:5174', 
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://localhost:5177',
+    'http://localhost:5178',
+    'http://localhost:5179',
+    'http://localhost:5180',
+    'http://localhost:5181',
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ],
   
   // База данных
   databaseUrl: process.env.DATABASE_URL || 'postgresql://dfupr_user:password@localhost:5432/dfupr_db',

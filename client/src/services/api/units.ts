@@ -9,7 +9,7 @@ import type {
 } from '@/types/nomenclature';
 
 export class UnitsApi {
-  private readonly basePath = '/v1/units';
+  private readonly basePath = '/units';
 
   // Получить список единиц измерения
   async getUnits(): Promise<Unit[]> {

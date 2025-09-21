@@ -33,7 +33,26 @@ app.use(morgan('combined', { stream: { write: (message) => logger.info(message.t
 
 // CORS настройки
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: (origin, callback) => {
+    // Разрешаем запросы без origin (например, мобильные приложения)
+    if (!origin) return callback(null, true);
+    
+    // Проверяем, есть ли origin в списке разрешенных
+    if (Array.isArray(config.corsOrigin)) {
+      if (config.corsOrigin.includes(origin)) {
+        return callback(null, true);
+      }
+    } else if (config.corsOrigin === origin) {
+      return callback(null, true);
+    }
+    
+    // В режиме разработки разрешаем все localhost порты
+    if (config.nodeEnv === 'development' && origin.startsWith('http://localhost:')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

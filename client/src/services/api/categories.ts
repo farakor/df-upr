@@ -9,7 +9,7 @@ import type {
 } from '@/types/nomenclature';
 
 export class CategoriesApi {
-  private readonly basePath = '/v1/categories';
+  private readonly basePath = '/categories';
 
   // Получить список категорий
   async getCategories(filters?: CategoryFilters): Promise<Category[]> {

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 // Создание экземпляра axios
 const createApiClient = (): AxiosInstance => {
-  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
   
   const client = axios.create({
     baseURL,
@@ -48,7 +48,7 @@ const createApiClient = (): AxiosInstance => {
           
           if (tokens.refreshToken) {
             // Попытка обновить токен
-            const refreshResponse = await axios.post(`${baseURL}/v1/auth/refresh`, {
+            const refreshResponse = await axios.post(`${baseURL}/auth/refresh`, {
               refreshToken: tokens.refreshToken,
             });
 

@@ -10,7 +10,7 @@ import type {
 } from '@/types/nomenclature';
 
 export class ProductsApi {
-  private readonly basePath = '/v1/products';
+  private readonly basePath = '/products';
 
   // Получить список товаров с фильтрацией и пагинацией
   async getProducts(filters?: ProductFilters): Promise<ProductsResponse> {

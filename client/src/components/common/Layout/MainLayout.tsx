@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { LowStockNotifications } from '../LowStockNotifications';
 import { cn } from '@/utils/cn';
 
 export const MainLayout: React.FC = () => {
@@ -50,6 +51,9 @@ export const MainLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      
+      {/* Уведомления о низких остатках */}
+      <LowStockNotifications />
     </div>
   );
 };

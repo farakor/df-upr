@@ -10,6 +10,14 @@ import { LoginPage } from '@/pages/Auth/LoginPage';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
 import { ProductsListPage } from '@/pages/Products';
 import { CategoriesPage } from '@/pages/Categories';
+import { WarehousePage } from '@/pages/Warehouse';
+import { SuppliersPage } from '@/pages/Suppliers';
+import { DocumentsPage } from '@/pages/Documents';
+import { ReceiptPage } from '@/pages/Documents/ReceiptPage';
+import { TransferPage } from '@/pages/Documents/TransferPage';
+import { WriteoffPage } from '@/pages/Documents/WriteoffPage';
+import { StockBalancesPage } from '@/pages/StockBalances';
+import { StockMovementsPage } from '@/pages/StockMovements';
 import { StyleTest } from '@/components/test/StyleTest';
 
 // Создание клиента React Query
@@ -28,8 +36,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background font-sans antialiased">
         <AuthProvider>
-          <Router>
-            <Routes>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
               {/* Публичные маршруты */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/test-styles" element={<StyleTest />} />
@@ -51,7 +59,14 @@ function App() {
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="recipes" element={<div className="p-6">Рецептуры (в разработке)</div>} />
                 <Route path="menu" element={<div className="p-6">Меню (в разработке)</div>} />
-                <Route path="warehouse" element={<div className="p-6">Склад (в разработке)</div>} />
+                <Route path="warehouse" element={<WarehousePage />} />
+                <Route path="suppliers" element={<SuppliersPage />} />
+                <Route path="documents" element={<DocumentsPage />} />
+                <Route path="documents/receipt" element={<ReceiptPage />} />
+                <Route path="documents/transfer" element={<TransferPage />} />
+                <Route path="documents/writeoff" element={<WriteoffPage />} />
+                <Route path="stock-balances" element={<StockBalancesPage />} />
+                <Route path="stock-movements" element={<StockMovementsPage />} />
                 <Route path="inventory" element={<div className="p-6">Инвентаризация (в разработке)</div>} />
                 <Route path="sales" element={<div className="p-6">Продажи (в разработке)</div>} />
                 <Route path="reports" element={<div className="p-6">Отчеты (в разработке)</div>} />

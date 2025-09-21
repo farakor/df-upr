@@ -137,6 +137,9 @@ export const optionalAuth = async (
   }
 };
 
+// Алиас для совместимости
+export const authMiddleware = authenticateToken;
+
 /**
  * Проверка разрешений на основе кастомной логики
  */
