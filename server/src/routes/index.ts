@@ -8,6 +8,7 @@ import supplierRoutes from './supplier.routes';
 import documentRoutes from './document.routes';
 import stockMovementRoutes from './stockMovement.routes';
 import lowStockRoutes from './lowStock.routes';
+import recipeRoutes from './recipe.routes';
 
 const router = Router();
 
@@ -21,11 +22,9 @@ router.use('/suppliers', supplierRoutes);
 router.use('/documents', documentRoutes);
 router.use('/stock-movements', stockMovementRoutes);
 router.use('/low-stock', lowStockRoutes);
+router.use('/recipes', recipeRoutes);
 
 // Заглушки для будущих маршрутов
-router.get('/recipes', (req, res) => {
-  res.json({ message: 'Recipes API (в разработке)' });
-});
 
 router.get('/sales', (req, res) => {
   res.json({ message: 'Sales API (в разработке)' });

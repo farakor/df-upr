@@ -18,6 +18,7 @@ import { TransferPage } from '@/pages/Documents/TransferPage';
 import { WriteoffPage } from '@/pages/Documents/WriteoffPage';
 import { StockBalancesPage } from '@/pages/StockBalances';
 import { StockMovementsPage } from '@/pages/StockMovements';
+import { RecipesListPage } from '@/pages/Recipes';
 import { StyleTest } from '@/components/test/StyleTest';
 
 // Создание клиента React Query
@@ -57,7 +58,7 @@ function App() {
                 {/* Номенклатура */}
                 <Route path="products" element={<ProductsListPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
-                <Route path="recipes" element={<div className="p-6">Рецептуры (в разработке)</div>} />
+                <Route path="recipes" element={<RecipesListPage />} />
                 <Route path="menu" element={<div className="p-6">Меню (в разработке)</div>} />
                 <Route path="warehouse" element={<WarehousePage />} />
                 <Route path="suppliers" element={<SuppliersPage />} />

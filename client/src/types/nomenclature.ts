@@ -1,17 +1,19 @@
 // Типы для номенклатуры
 
-export enum UnitType {
-  WEIGHT = 'WEIGHT',
-  VOLUME = 'VOLUME',
-  PIECE = 'PIECE',
-  LENGTH = 'LENGTH',
-}
+export const UnitType = {
+  WEIGHT: 'WEIGHT',
+  VOLUME: 'VOLUME',
+  PIECE: 'PIECE',
+  LENGTH: 'LENGTH',
+} as const;
+
+export type UnitTypeType = typeof UnitType[keyof typeof UnitType];
 
 export interface Unit {
   id: number;
   name: string;
   shortName: string;
-  type: UnitType;
+  type: UnitTypeType;
   baseUnitId?: number;
   conversionFactor: string;
   baseUnit?: Unit;
@@ -105,7 +107,7 @@ export interface UpdateCategoryData extends Partial<CreateCategoryData> {
 export interface CreateUnitData {
   name: string;
   shortName: string;
-  type: UnitType;
+  type: UnitTypeType;
   baseUnitId?: number;
   conversionFactor?: number;
 }
