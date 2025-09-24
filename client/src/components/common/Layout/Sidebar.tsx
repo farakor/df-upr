@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,17 +14,32 @@ import {
   ShoppingCart,
   BarChart3,
   Settings,
+  ChevronDown,
+  ChevronRight,
+  List,
+  Grid3X3,
+  Store,
+  Eye,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
 
-interface MenuItem {
+interface SubMenuItem {
   id: string;
   label: string;
   icon: React.ReactNode;
   path: string;
   roles?: string[];
+}
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  path?: string;
+  roles?: string[];
+  subItems?: SubMenuItem[];
 }
 
 const menuItems: MenuItem[] = [
@@ -57,6 +72,32 @@ const menuItems: MenuItem[] = [
     label: 'Меню',
     icon: <MenuSquare className="h-5 w-5" />,
     path: '/menu',
+    subItems: [
+      {
+        id: 'menu-display',
+        label: 'Просмотр меню',
+        icon: <Eye className="h-4 w-4" />,
+        path: '/menu',
+      },
+      {
+        id: 'menu-categories',
+        label: 'Категории',
+        icon: <Grid3X3 className="h-4 w-4" />,
+        path: '/menu/categories',
+      },
+      {
+        id: 'menu-items',
+        label: 'Позиции меню',
+        icon: <List className="h-4 w-4" />,
+        path: '/menu/items',
+      },
+      {
+        id: 'menu-warehouse-settings',
+        label: 'Настройки по складам',
+        icon: <Store className="h-4 w-4" />,
+        path: '/menu/warehouse-settings',
+      },
+    ],
   },
   {
     id: 'warehouse',
@@ -93,6 +134,20 @@ const menuItems: MenuItem[] = [
     label: 'Продажи',
     icon: <ShoppingCart className="h-5 w-5" />,
     path: '/sales',
+    subItems: [
+      {
+        id: 'sales-cashier',
+        label: 'Касса',
+        icon: <ShoppingCart className="h-4 w-4" />,
+        path: '/sales',
+      },
+      {
+        id: 'sales-dashboard',
+        label: 'Дашборд продаж',
+        icon: <BarChart3 className="h-4 w-4" />,
+        path: '/sales/dashboard',
+      },
+    ],
   },
   {
     id: 'reports',
@@ -117,22 +172,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { state } = useAuth();
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const handleItemClick = (path: string) => {
     navigate(path);
     onItemClick?.();
   };
 
+  const toggleExpanded = (itemId: string) => {
+    setExpandedItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
   const isItemActive = (path: string) => {
     return location.pathname === path;
   };
 
-  const canAccessItem = (item: MenuItem) => {
+  const isItemOrSubItemActive = (item: MenuItem) => {
+    if (item.path && isItemActive(item.path)) {
+      return true;
+    }
+    if (item.subItems) {
+      return item.subItems.some(subItem => isItemActive(subItem.path));
+    }
+    return false;
+  };
+
+  const canAccessItem = (item: MenuItem | SubMenuItem) => {
     if (!item.roles || item.roles.length === 0) {
       return true;
     }
     return state.user && item.roles.includes(state.user.role);
   };
+
+  // Автоматически раскрываем подменю, если пользователь находится на одной из его страниц
+  useEffect(() => {
+    menuItems.forEach(item => {
+      if (item.subItems && isItemOrSubItemActive(item)) {
+        setExpandedItems(prev => 
+          prev.includes(item.id) ? prev : [...prev, item.id]
+        );
+      }
+    });
+  }, [location.pathname]);
 
   const getRoleLabel = (role: string) => {
     const roleLabels: Record<string, string> = {
@@ -179,21 +264,66 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
               return null;
             }
 
-            const isActive = isItemActive(item.path);
+            const hasSubItems = item.subItems && item.subItems.length > 0;
+            const isExpanded = expandedItems.includes(item.id);
+            const isActive = isItemOrSubItemActive(item);
 
             return (
-              <Button
-                key={item.id}
-                variant={isActive ? "default" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-3 h-11",
-                  isActive && "bg-primary text-primary-foreground"
+              <div key={item.id}>
+                <Button
+                  variant={isActive ? "default" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11",
+                    isActive && "bg-primary text-primary-foreground"
+                  )}
+                  onClick={() => {
+                    if (hasSubItems) {
+                      toggleExpanded(item.id);
+                    } else if (item.path) {
+                      handleItemClick(item.path);
+                    }
+                  }}
+                >
+                  {item.icon}
+                  <span className="truncate flex-1 text-left">{item.label}</span>
+                  {hasSubItems && (
+                    isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )
+                  )}
+                </Button>
+
+                {/* Подменю */}
+                {hasSubItems && isExpanded && (
+                  <div className="ml-4 mt-1 space-y-1">
+                    {item.subItems!.map((subItem) => {
+                      if (!canAccessItem(subItem)) {
+                        return null;
+                      }
+
+                      const isSubItemActive = isItemActive(subItem.path);
+
+                      return (
+                        <Button
+                          key={subItem.id}
+                          variant={isSubItemActive ? "default" : "ghost"}
+                          size="sm"
+                          className={cn(
+                            "w-full justify-start gap-3 h-9",
+                            isSubItemActive && "bg-primary text-primary-foreground"
+                          )}
+                          onClick={() => handleItemClick(subItem.path)}
+                        >
+                          {subItem.icon}
+                          <span className="truncate">{subItem.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 )}
-                onClick={() => handleItemClick(item.path)}
-              >
-                {item.icon}
-                <span className="truncate">{item.label}</span>
-              </Button>
+              </div>
             );
           })}
         </div>

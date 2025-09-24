@@ -9,6 +9,10 @@ import documentRoutes from './document.routes';
 import stockMovementRoutes from './stockMovement.routes';
 import lowStockRoutes from './lowStock.routes';
 import recipeRoutes from './recipe.routes';
+import menuRoutes from './menu.routes';
+import inventoryRoutes from './inventory.routes';
+import salesRoutes from './sales.routes';
+import reportsRoutes from './reports.routes';
 
 const router = Router();
 
@@ -23,15 +27,9 @@ router.use('/documents', documentRoutes);
 router.use('/stock-movements', stockMovementRoutes);
 router.use('/low-stock', lowStockRoutes);
 router.use('/recipes', recipeRoutes);
-
-// Заглушки для будущих маршрутов
-
-router.get('/sales', (req, res) => {
-  res.json({ message: 'Sales API (в разработке)' });
-});
-
-router.get('/reports', (req, res) => {
-  res.json({ message: 'Reports API (в разработке)' });
-});
+router.use('/menu', menuRoutes);
+router.use('/inventories', inventoryRoutes);
+router.use('/sales', salesRoutes);
+router.use('/reports', reportsRoutes);
 
 export default router;

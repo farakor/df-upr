@@ -19,6 +19,10 @@ import { WriteoffPage } from '@/pages/Documents/WriteoffPage';
 import { StockBalancesPage } from '@/pages/StockBalances';
 import { StockMovementsPage } from '@/pages/StockMovements';
 import { RecipesListPage } from '@/pages/Recipes';
+import { MenuCategoriesPage, MenuItemsPage, WarehouseMenuPage, MenuDisplayPage } from '@/pages/Menu';
+import { InventoryList, CreateInventory, InventoryDetail, InventoryAnalysis } from '@/pages/Inventory';
+import { SalesPage, SalesDashboard } from '@/pages/Sales';
+import { ReportsPage } from '@/pages/Reports';
 import { StyleTest } from '@/components/test/StyleTest';
 
 // Создание клиента React Query
@@ -59,7 +63,13 @@ function App() {
                 <Route path="products" element={<ProductsListPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="recipes" element={<RecipesListPage />} />
-                <Route path="menu" element={<div className="p-6">Меню (в разработке)</div>} />
+                
+                {/* Меню */}
+                <Route path="menu" element={<MenuDisplayPage />} />
+                <Route path="menu/categories" element={<MenuCategoriesPage />} />
+                <Route path="menu/items" element={<MenuItemsPage />} />
+                <Route path="menu/warehouse-settings" element={<WarehouseMenuPage />} />
+                
                 <Route path="warehouse" element={<WarehousePage />} />
                 <Route path="suppliers" element={<SuppliersPage />} />
                 <Route path="documents" element={<DocumentsPage />} />
@@ -68,9 +78,19 @@ function App() {
                 <Route path="documents/writeoff" element={<WriteoffPage />} />
                 <Route path="stock-balances" element={<StockBalancesPage />} />
                 <Route path="stock-movements" element={<StockMovementsPage />} />
-                <Route path="inventory" element={<div className="p-6">Инвентаризация (в разработке)</div>} />
-                <Route path="sales" element={<div className="p-6">Продажи (в разработке)</div>} />
-                <Route path="reports" element={<div className="p-6">Отчеты (в разработке)</div>} />
+                <Route path="inventory" element={<InventoryList />} />
+                <Route path="inventory/create" element={<CreateInventory />} />
+                <Route path="inventory/:id" element={<InventoryDetail />} />
+                <Route path="inventory/:id/analysis" element={<InventoryAnalysis />} />
+                
+                {/* Продажи */}
+                <Route path="sales" element={<SalesPage />} />
+                <Route path="sales/dashboard" element={<SalesDashboard />} />
+                
+                {/* Отчеты */}
+                <Route path="reports" element={<ReportsPage />} />
+                
+                {/* Настройки */}
                 <Route path="settings" element={<div className="p-6">Настройки (в разработке)</div>} />
               </Route>
               

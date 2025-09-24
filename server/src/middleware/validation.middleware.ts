@@ -104,3 +104,8 @@ export const validateMiddleware = (schema: Joi.ObjectSchema, target: 'body' | 'q
   options[target] = schema;
   return validate(options);
 };
+
+// Функция validateRequest для совместимости с новыми маршрутами
+export const validateRequest = (schema: Joi.ObjectSchema, target: 'body' | 'query' | 'params' = 'body') => {
+  return validateMiddleware(schema, target);
+};
