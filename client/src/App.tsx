@@ -14,15 +14,17 @@ import { WarehousePage } from '@/pages/Warehouse';
 import { SuppliersPage } from '@/pages/Suppliers';
 import { DocumentsPage } from '@/pages/Documents';
 import { ReceiptPage } from '@/pages/Documents/ReceiptPage';
-import { TransferPage } from '@/pages/Documents/TransferPage';
 import { WriteoffPage } from '@/pages/Documents/WriteoffPage';
 import { StockBalancesPage } from '@/pages/StockBalances';
-import { StockMovementsPage } from '@/pages/StockMovements';
+import { StockMovementsPage, CreateTransferPage } from '@/pages/StockMovements';
 import { RecipesListPage } from '@/pages/Recipes';
 import { MenuCategoriesPage, MenuItemsPage, WarehouseMenuPage, MenuDisplayPage } from '@/pages/Menu';
+import MenuListPage from '@/pages/Menu/MenuListPage';
+import MenuEditPage from '@/pages/Menu/MenuEditPage';
 import { InventoryList, CreateInventory, InventoryDetail, InventoryAnalysis } from '@/pages/Inventory';
 import { SalesPage, SalesDashboard } from '@/pages/Sales';
 import { ReportsPage } from '@/pages/Reports';
+import { SettingsPage } from '@/pages/Settings';
 import { StyleTest } from '@/components/test/StyleTest';
 
 // Создание клиента React Query
@@ -65,7 +67,9 @@ function App() {
                 <Route path="recipes" element={<RecipesListPage />} />
                 
                 {/* Меню */}
-                <Route path="menu" element={<MenuDisplayPage />} />
+                <Route path="menu" element={<MenuListPage />} />
+                <Route path="menu/:id/edit" element={<MenuEditPage />} />
+                <Route path="menu/display" element={<MenuDisplayPage />} />
                 <Route path="menu/categories" element={<MenuCategoriesPage />} />
                 <Route path="menu/items" element={<MenuItemsPage />} />
                 <Route path="menu/warehouse-settings" element={<WarehouseMenuPage />} />
@@ -74,10 +78,10 @@ function App() {
                 <Route path="suppliers" element={<SuppliersPage />} />
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="documents/receipt" element={<ReceiptPage />} />
-                <Route path="documents/transfer" element={<TransferPage />} />
                 <Route path="documents/writeoff" element={<WriteoffPage />} />
                 <Route path="stock-balances" element={<StockBalancesPage />} />
                 <Route path="stock-movements" element={<StockMovementsPage />} />
+                <Route path="stock-movements/create" element={<CreateTransferPage />} />
                 <Route path="inventory" element={<InventoryList />} />
                 <Route path="inventory/create" element={<CreateInventory />} />
                 <Route path="inventory/:id" element={<InventoryDetail />} />
@@ -91,7 +95,7 @@ function App() {
                 <Route path="reports" element={<ReportsPage />} />
                 
                 {/* Настройки */}
-                <Route path="settings" element={<div className="p-6">Настройки (в разработке)</div>} />
+                <Route path="settings" element={<SettingsPage />} />
               </Route>
               
               {/* Обработка несуществующих маршрутов */}

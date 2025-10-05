@@ -1,8 +1,15 @@
-import { PrismaClient, MenuCategory, MenuItem, WarehouseMenuItem, Prisma } from '@prisma/client';
+import { PrismaClient, Menu, MenuCategory, MenuItem, WarehouseMenu, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 // Расширенные типы для включения связанных данных
+type MenuWithItems = Menu & {
+  menuItems?: MenuItem[];
+  _count?: {
+    menuItems: number;
+  };
+};
+
 type MenuCategoryWithItems = MenuCategory & {
   menuItems?: MenuItem[];
   _count?: {
@@ -12,43 +19,74 @@ type MenuCategoryWithItems = MenuCategory & {
 
 type MenuItemWithIncludes = MenuItem & {
   category?: MenuCategory | null;
-  recipe?: {
+  menu?: Menu | null;
+  product?: {
     id: number;
     name: string;
-    portionSize: Prisma.Decimal;
-    costPrice: Prisma.Decimal | null;
-    ingredients: {
+    article: string | null;
+    categoryId: number | null;
+    unit: {
       id: number;
-      quantity: Prisma.Decimal;
-      product: {
+      name: string;
+      shortName: string;
+    };
+    recipe?: {
+      id: number;
+      name: string;
+      portionSize: Prisma.Decimal;
+      costPrice: Prisma.Decimal | null;
+      ingredients: {
         id: number;
-        name: string;
+        quantity: Prisma.Decimal;
+        product: {
+          id: number;
+          name: string;
+          unit: {
+            id: number;
+            name: string;
+            shortName: string;
+          };
+        };
         unit: {
           id: number;
           name: string;
           shortName: string;
         };
-      };
-      unit: {
-        id: number;
-        name: string;
-        shortName: string;
-      };
-    }[];
+      }[];
+    } | null;
   } | null;
-  warehouseMenuItems?: WarehouseMenuItem[];
 };
 
-type WarehouseMenuItemWithIncludes = WarehouseMenuItem & {
+type WarehouseMenuWithIncludes = WarehouseMenu & {
   warehouse: {
     id: number;
     name: string;
     type: string;
   };
-  menuItem: MenuItemWithIncludes;
+  menu: Menu & {
+    menuItems?: MenuItem[];
+  };
 };
 
 // Интерфейсы для входных данных
+
+// === МЕНЮ ===
+export interface MenuCreateInput {
+  name: string;
+  description?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+}
+
+export interface MenuUpdateInput {
+  name?: string;
+  description?: string;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
+  isActive?: boolean;
+}
+
+// === КАТЕГОРИИ МЕНЮ ===
 export interface MenuCategoryCreateInput {
   name: string;
   description?: string;
@@ -62,11 +100,13 @@ export interface MenuCategoryUpdateInput {
   isActive?: boolean;
 }
 
+// === ПОЗИЦИИ МЕНЮ ===
 export interface MenuItemCreateInput {
+  menuId?: number;
+  productId: number;
+  categoryId?: number;
   name: string;
   description?: string;
-  recipeId?: number;
-  categoryId?: number;
   price: number;
   costPrice?: number;
   imageUrl?: string;
@@ -74,10 +114,11 @@ export interface MenuItemCreateInput {
 }
 
 export interface MenuItemUpdateInput {
+  menuId?: number | null;
+  productId?: number | null;
+  categoryId?: number | null;
   name?: string;
   description?: string;
-  recipeId?: number | null;
-  categoryId?: number | null;
   price?: number;
   costPrice?: number | null;
   imageUrl?: string | null;
@@ -86,14 +127,20 @@ export interface MenuItemUpdateInput {
   sortOrder?: number;
 }
 
-export interface WarehouseMenuItemInput {
+export interface WarehouseMenuInput {
   warehouseId: number;
-  menuItemId: number;
-  isAvailable?: boolean;
-  priceOverride?: number | null;
+  menuId: number;
+  isActive?: boolean;
 }
 
 // Интерфейсы для фильтров
+export interface MenuFilters {
+  search?: string;
+  isActive?: boolean;
+  dateFrom?: string | Date;
+  dateTo?: string | Date;
+}
+
 export interface MenuCategoryFilters {
   search?: string;
   isActive?: boolean;
@@ -101,8 +148,9 @@ export interface MenuCategoryFilters {
 
 export interface MenuItemFilters {
   search?: string;
+  menuId?: number;
   categoryId?: number;
-  recipeId?: number;
+  productId?: number;
   isAvailable?: boolean;
   isActive?: boolean;
   priceMin?: number;
@@ -118,6 +166,155 @@ export interface PaginationOptions {
 }
 
 export class MenuService {
+  // === МЕНЮ ===
+
+  async createMenu(data: MenuCreateInput): Promise<Menu> {
+    try {
+      return await prisma.menu.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          startDate: data.startDate ? new Date(data.startDate) : undefined,
+          endDate: data.endDate ? new Date(data.endDate) : undefined,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error('Меню с таким названием уже существует');
+        }
+      }
+      throw error;
+    }
+  }
+
+  async getMenus(
+    filters: MenuFilters = {},
+    pagination: PaginationOptions = {}
+  ): Promise<{ menus: MenuWithItems[]; total: number; page: number; totalPages: number }> {
+    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const { search, isActive, dateFrom, dateTo } = filters;
+
+    const where: Prisma.MenuWhereInput = {
+      ...(isActive !== undefined && { isActive }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(dateFrom && {
+        startDate: { gte: new Date(dateFrom) },
+      }),
+      ...(dateTo && {
+        endDate: { lte: new Date(dateTo) },
+      }),
+    };
+
+    const [menus, total] = await Promise.all([
+      prisma.menu.findMany({
+        where,
+        include: {
+          _count: {
+            select: { menuItems: true },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.menu.count({ where }),
+    ]);
+
+    return {
+      menus,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getMenuById(id: number): Promise<MenuWithItems | null> {
+    return await prisma.menu.findUnique({
+      where: { id },
+      include: {
+        menuItems: {
+          include: {
+            category: true,
+            product: {
+              include: {
+                unit: true,
+                recipe: {
+                  include: {
+                    ingredients: {
+                      include: {
+                        product: {
+                          include: {
+                            unit: true,
+                          },
+                        },
+                        unit: true,
+                      },
+                      orderBy: {
+                        sortOrder: 'asc',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        _count: {
+          select: { menuItems: true },
+        },
+      },
+    });
+  }
+
+  async updateMenu(id: number, data: MenuUpdateInput): Promise<Menu> {
+    try {
+      return await prisma.menu.update({
+        where: { id },
+        data: {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.startDate !== undefined && { startDate: data.startDate ? new Date(data.startDate) : null }),
+          ...(data.endDate !== undefined && { endDate: data.endDate ? new Date(data.endDate) : null }),
+          ...(data.isActive !== undefined && { isActive: data.isActive }),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error('Меню с таким названием уже существует');
+        }
+        if (error.code === 'P2025') {
+          throw new Error('Меню не найдено');
+        }
+      }
+      throw error;
+    }
+  }
+
+  async deleteMenu(id: number): Promise<void> {
+    try {
+      await prisma.menu.delete({
+        where: { id },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new Error('Меню не найдено');
+        }
+      }
+      throw error;
+    }
+  }
+
   // === КАТЕГОРИИ МЕНЮ ===
 
   async createMenuCategory(data: MenuCategoryCreateInput): Promise<MenuCategory> {
@@ -144,10 +341,10 @@ export class MenuService {
     pagination: PaginationOptions = {}
   ): Promise<{ categories: MenuCategoryWithItems[]; total: number; page: number; totalPages: number }> {
     const { page = 1, limit = 20, sortBy = 'sortOrder', sortOrder = 'asc' } = pagination;
-    const { search, isActive = true } = filters;
+    const { search, isActive } = filters;
 
     const where: Prisma.MenuCategoryWhereInput = {
-      isActive,
+      ...(isActive !== undefined && { isActive }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -161,16 +358,10 @@ export class MenuService {
         where,
         include: {
           _count: {
-            select: {
-              menuItems: {
-                where: { isActive: true },
-              },
-            },
+            select: { menuItems: true },
           },
         },
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
+        orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -190,15 +381,20 @@ export class MenuService {
       where: { id },
       include: {
         menuItems: {
-          where: { isActive: true },
-          orderBy: { sortOrder: 'asc' },
-        },
-        _count: {
-          select: {
-            menuItems: {
-              where: { isActive: true },
+          include: {
+            menu: true,
+            product: {
+              include: {
+                unit: true,
+              },
             },
           },
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        _count: {
+          select: { menuItems: true },
         },
       },
     });
@@ -208,15 +404,20 @@ export class MenuService {
     try {
       return await prisma.menuCategory.update({
         where: { id },
-        data,
+        data: {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+          ...(data.isActive !== undefined && { isActive: data.isActive }),
+        },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new Error('Категория не найдена');
-        }
         if (error.code === 'P2002') {
           throw new Error('Категория с таким названием уже существует');
+        }
+        if (error.code === 'P2025') {
+          throw new Error('Категория не найдена');
         }
       }
       throw error;
@@ -225,23 +426,16 @@ export class MenuService {
 
   async deleteMenuCategory(id: number): Promise<void> {
     try {
-      // Проверяем, есть ли позиции меню в этой категории
-      const itemsCount = await prisma.menuItem.count({
-        where: { categoryId: id, isActive: true },
-      });
-
-      if (itemsCount > 0) {
-        throw new Error('Нельзя удалить категорию, содержащую активные позиции меню');
-      }
-
-      await prisma.menuCategory.update({
+      await prisma.menuCategory.delete({
         where: { id },
-        data: { isActive: false },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new Error('Категория не найдена');
+        }
+        if (error.code === 'P2003') {
+          throw new Error('Невозможно удалить категорию, так как она используется в позициях меню');
         }
       }
       throw error;
@@ -250,61 +444,61 @@ export class MenuService {
 
   // === ПОЗИЦИИ МЕНЮ ===
 
-  async createMenuItem(data: MenuItemCreateInput): Promise<MenuItemWithIncludes> {
+  async createMenuItem(data: MenuItemCreateInput): Promise<MenuItem> {
     try {
-      // Если указан рецепт, получаем его себестоимость
-      let costPrice = data.costPrice;
-      if (data.recipeId && !costPrice) {
-        const recipe = await prisma.recipe.findUnique({
-          where: { id: data.recipeId },
-          select: { costPrice: true },
-        });
-        if (recipe?.costPrice) {
-          costPrice = Number(recipe.costPrice);
-        }
+      // Проверяем существование продукта
+      const product = await prisma.product.findUnique({
+        where: { id: data.productId },
+        include: { unit: true },
+      });
+
+      if (!product) {
+        throw new Error('Продукт не найден');
       }
 
-      const menuItem = await prisma.menuItem.create({
+      return await prisma.menuItem.create({
         data: {
+          menuId: data.menuId,
+          productId: data.productId,
+          categoryId: data.categoryId,
           name: data.name,
           description: data.description,
-          recipeId: data.recipeId,
-          categoryId: data.categoryId,
-          price: new Prisma.Decimal(data.price),
-          costPrice: costPrice ? new Prisma.Decimal(costPrice) : null,
+          price: data.price,
+          costPrice: data.costPrice,
           imageUrl: data.imageUrl,
           sortOrder: data.sortOrder || 0,
         },
         include: {
+          menu: true,
           category: true,
-          recipe: {
+          product: {
             include: {
-              ingredients: {
+              unit: true,
+              recipe: {
                 include: {
-                  product: {
+                  ingredients: {
                     include: {
+                      product: {
+                        include: {
+                          unit: true,
+                        },
+                      },
                       unit: true,
                     },
                   },
-                  unit: true,
-                },
-                orderBy: {
-                  sortOrder: 'asc',
                 },
               },
             },
           },
         },
       });
-
-      return menuItem;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new Error('Позиция меню с таким названием уже существует');
         }
         if (error.code === 'P2003') {
-          throw new Error('Указанный рецепт или категория не существует');
+          throw new Error('Указанный продукт, категория или меню не найдены');
         }
       }
       throw error;
@@ -316,24 +510,16 @@ export class MenuService {
     pagination: PaginationOptions = {}
   ): Promise<{ items: MenuItemWithIncludes[]; total: number; page: number; totalPages: number }> {
     const { page = 1, limit = 20, sortBy = 'sortOrder', sortOrder = 'asc' } = pagination;
-    const {
-      search,
-      categoryId,
-      recipeId,
-      isAvailable,
-      isActive = true,
-      priceMin,
-      priceMax,
-      warehouseId,
-    } = filters;
+    const { search, menuId, categoryId, productId, isAvailable, isActive, priceMin, priceMax, warehouseId } = filters;
 
-    let where: Prisma.MenuItemWhereInput = {
-      isActive,
-      ...(categoryId && { categoryId }),
-      ...(recipeId && { recipeId }),
+    const where: Prisma.MenuItemWhereInput = {
+      ...(menuId !== undefined && { menuId }),
+      ...(categoryId !== undefined && { categoryId }),
+      ...(productId !== undefined && { productId }),
       ...(isAvailable !== undefined && { isAvailable }),
-      ...(priceMin && { price: { gte: new Prisma.Decimal(priceMin) } }),
-      ...(priceMax && { price: { lte: new Prisma.Decimal(priceMax) } }),
+      ...(isActive !== undefined && { isActive }),
+      ...(priceMin !== undefined && { price: { gte: priceMin } }),
+      ...(priceMax !== undefined && { price: { ...((priceMin !== undefined) && { gte: priceMin }), lte: priceMax } }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -342,50 +528,36 @@ export class MenuService {
       }),
     };
 
-    // Если указан склад, фильтруем по доступности на складе
-    if (warehouseId) {
-      where = {
-        ...where,
-        warehouseMenuItems: {
-          some: {
-            warehouseId,
-            isAvailable: true,
-          },
-        },
-      };
-    }
-
     const [items, total] = await Promise.all([
       prisma.menuItem.findMany({
         where,
         include: {
+          menu: true,
           category: true,
-          recipe: {
+          product: {
             include: {
-              ingredients: {
+              unit: true,
+              recipe: {
                 include: {
-                  product: {
+                  ingredients: {
                     include: {
+                      product: {
+                        include: {
+                          unit: true,
+                        },
+                      },
                       unit: true,
                     },
+                    orderBy: {
+                      sortOrder: 'asc',
+                    },
                   },
-                  unit: true,
-                },
-                orderBy: {
-                  sortOrder: 'asc',
                 },
               },
             },
           },
-          warehouseMenuItems: warehouseId
-            ? {
-                where: { warehouseId },
-              }
-            : undefined,
         },
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
+        orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -404,172 +576,11 @@ export class MenuService {
     return await prisma.menuItem.findUnique({
       where: { id },
       include: {
+        menu: true,
         category: true,
-        recipe: {
+        product: {
           include: {
-            ingredients: {
-              include: {
-                product: {
-                  include: {
-                    unit: true,
-                  },
-                },
-                unit: true,
-              },
-              orderBy: {
-                sortOrder: 'asc',
-              },
-            },
-          },
-        },
-        warehouseMenuItems: {
-          include: {
-            warehouse: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  async updateMenuItem(id: number, data: MenuItemUpdateInput): Promise<MenuItemWithIncludes> {
-    try {
-      // Если изменяется рецепт и не указана себестоимость, обновляем её
-      let updateData = { ...data };
-      if (data.recipeId && data.costPrice === undefined) {
-        const recipe = await prisma.recipe.findUnique({
-          where: { id: data.recipeId },
-          select: { costPrice: true },
-        });
-        if (recipe?.costPrice) {
-          updateData.costPrice = Number(recipe.costPrice);
-        }
-      }
-
-      const menuItem = await prisma.menuItem.update({
-        where: { id },
-        data: {
-          ...updateData,
-          price: updateData.price ? new Prisma.Decimal(updateData.price) : undefined,
-          costPrice: updateData.costPrice ? new Prisma.Decimal(updateData.costPrice) : updateData.costPrice,
-        },
-        include: {
-          category: true,
-          recipe: {
-            include: {
-              ingredients: {
-                include: {
-                  product: {
-                    include: {
-                      unit: true,
-                    },
-                  },
-                  unit: true,
-                },
-                orderBy: {
-                  sortOrder: 'asc',
-                },
-              },
-            },
-          },
-          warehouseMenuItems: {
-            include: {
-              warehouse: {
-                select: {
-                  id: true,
-                  name: true,
-                  type: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      return menuItem;
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new Error('Позиция меню не найдена');
-        }
-        if (error.code === 'P2002') {
-          throw new Error('Позиция меню с таким названием уже существует');
-        }
-        if (error.code === 'P2003') {
-          throw new Error('Указанный рецепт или категория не существует');
-        }
-      }
-      throw error;
-    }
-  }
-
-  async deleteMenuItem(id: number): Promise<void> {
-    try {
-      await prisma.menuItem.update({
-        where: { id },
-        data: { isActive: false },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new Error('Позиция меню не найдена');
-        }
-      }
-      throw error;
-    }
-  }
-
-  // === НАСТРОЙКИ МЕНЮ ПО СКЛАДАМ ===
-
-  async setWarehouseMenuItem(data: WarehouseMenuItemInput): Promise<WarehouseMenuItem> {
-    try {
-      return await prisma.warehouseMenuItem.upsert({
-        where: {
-          warehouseId_menuItemId: {
-            warehouseId: data.warehouseId,
-            menuItemId: data.menuItemId,
-          },
-        },
-        update: {
-          isAvailable: data.isAvailable,
-          priceOverride: data.priceOverride ? new Prisma.Decimal(data.priceOverride) : null,
-        },
-        create: {
-          warehouseId: data.warehouseId,
-          menuItemId: data.menuItemId,
-          isAvailable: data.isAvailable ?? true,
-          priceOverride: data.priceOverride ? new Prisma.Decimal(data.priceOverride) : null,
-        },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2003') {
-          throw new Error('Указанный склад или позиция меню не существует');
-        }
-      }
-      throw error;
-    }
-  }
-
-  async getWarehouseMenuItems(warehouseId: number): Promise<WarehouseMenuItemWithIncludes[]> {
-    return await prisma.warehouseMenuItem.findMany({
-      where: { warehouseId },
-      include: {
-        warehouse: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
-        menuItem: {
-          include: {
-            category: true,
+            unit: true,
             recipe: {
               include: {
                 ingredients: {
@@ -590,32 +601,228 @@ export class MenuService {
           },
         },
       },
-      orderBy: {
-        menuItem: {
-          sortOrder: 'asc',
-        },
-      },
     });
   }
 
-  async removeWarehouseMenuItem(warehouseId: number, menuItemId: number): Promise<void> {
+  async updateMenuItem(id: number, data: MenuItemUpdateInput): Promise<MenuItem> {
     try {
-      await prisma.warehouseMenuItem.delete({
+      // Если обновляется productId, проверяем существование продукта
+      if (data.productId !== undefined && data.productId !== null) {
+        const product = await prisma.product.findUnique({
+          where: { id: data.productId },
+        });
+
+        if (!product) {
+          throw new Error('Продукт не найден');
+        }
+      }
+
+      return await prisma.menuItem.update({
+        where: { id },
+        data: {
+          ...(data.menuId !== undefined && { menuId: data.menuId }),
+          ...(data.productId !== undefined && { productId: data.productId }),
+          ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.price !== undefined && { price: data.price }),
+          ...(data.costPrice !== undefined && { costPrice: data.costPrice }),
+          ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
+          ...(data.isAvailable !== undefined && { isAvailable: data.isAvailable }),
+          ...(data.isActive !== undefined && { isActive: data.isActive }),
+          ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        },
+        include: {
+          menu: true,
+          category: true,
+          product: {
+            include: {
+              unit: true,
+              recipe: {
+                include: {
+                  ingredients: {
+                    include: {
+                      product: {
+                        include: {
+                          unit: true,
+                        },
+                      },
+                      unit: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error('Позиция меню с таким названием уже существует');
+        }
+        if (error.code === 'P2025') {
+          throw new Error('Позиция меню не найдена');
+        }
+        if (error.code === 'P2003') {
+          throw new Error('Указанный продукт, категория или меню не найдены');
+        }
+      }
+      throw error;
+    }
+  }
+
+  async deleteMenuItem(id: number): Promise<void> {
+    try {
+      await prisma.menuItem.delete({
+        where: { id },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new Error('Позиция меню не найдена');
+        }
+        if (error.code === 'P2003') {
+          throw new Error('Невозможно удалить позицию меню, так как она используется в продажах');
+        }
+      }
+      throw error;
+    }
+  }
+
+  // === ПРИВЯЗКА МЕНЮ К СКЛАДАМ ===
+
+  async addWarehouseMenu(data: WarehouseMenuInput): Promise<WarehouseMenu> {
+    try {
+      return await prisma.warehouseMenu.create({
+        data: {
+          warehouseId: data.warehouseId,
+          menuId: data.menuId,
+          isActive: data.isActive ?? true,
+        },
+        include: {
+          warehouse: true,
+          menu: {
+            include: {
+              menuItems: {
+                where: { isActive: true },
+                orderBy: { sortOrder: 'asc' },
+              },
+            },
+          },
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error('Это меню уже добавлено на данный склад');
+        }
+        if (error.code === 'P2003') {
+          throw new Error('Указанный склад или меню не найдены');
+        }
+      }
+      throw error;
+    }
+  }
+
+  async updateWarehouseMenu(
+    warehouseId: number,
+    menuId: number,
+    data: Partial<WarehouseMenuInput>
+  ): Promise<WarehouseMenu> {
+    try {
+      return await prisma.warehouseMenu.update({
         where: {
-          warehouseId_menuItemId: {
+          warehouseId_menuId: {
             warehouseId,
-            menuItemId,
+            menuId,
+          },
+        },
+        data: {
+          ...(data.isActive !== undefined && { isActive: data.isActive }),
+        },
+        include: {
+          warehouse: true,
+          menu: {
+            include: {
+              menuItems: {
+                where: { isActive: true },
+                orderBy: { sortOrder: 'asc' },
+              },
+            },
           },
         },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new Error('Настройка позиции меню для склада не найдена');
+          throw new Error('Меню на складе не найдено');
         }
       }
       throw error;
     }
+  }
+
+  async removeWarehouseMenu(warehouseId: number, menuId: number): Promise<void> {
+    try {
+      await prisma.warehouseMenu.delete({
+        where: {
+          warehouseId_menuId: {
+            warehouseId,
+            menuId,
+          },
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new Error('Меню на складе не найдено');
+        }
+      }
+      throw error;
+    }
+  }
+
+  async getWarehouseMenus(warehouseId: number): Promise<WarehouseMenuWithIncludes[]> {
+    return await prisma.warehouseMenu.findMany({
+      where: { warehouseId, isActive: true },
+      include: {
+        warehouse: true,
+        menu: {
+          include: {
+            menuItems: {
+              where: { isActive: true },
+              include: {
+                category: true,
+                product: {
+                  include: {
+                    unit: true,
+                    recipe: {
+                      include: {
+                        ingredients: {
+                          include: {
+                            product: {
+                              include: {
+                                unit: true,
+                              },
+                            },
+                            unit: true,
+                          },
+                          orderBy: {
+                            sortOrder: 'asc',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
   }
 
   // === ПОЛУЧЕНИЕ ДОСТУПНОГО МЕНЮ ===
@@ -625,7 +832,24 @@ export class MenuService {
       menuItems: MenuItemWithIncludes[];
     })[];
   }> {
-    // Получаем все категории с позициями меню, доступными на складе
+    // Получаем активные меню, привязанные к складу
+    const warehouseMenus = await prisma.warehouseMenu.findMany({
+      where: {
+        warehouseId,
+        isActive: true,
+      },
+      select: {
+        menuId: true,
+      },
+    });
+
+    const activeMenuIds = warehouseMenus.map(wm => wm.menuId);
+
+    if (activeMenuIds.length === 0) {
+      return { categories: [] };
+    }
+
+    // Получаем все категории с позициями меню из активных меню на складе
     const categories = await prisma.menuCategory.findMany({
       where: {
         isActive: true,
@@ -633,11 +857,8 @@ export class MenuService {
           some: {
             isActive: true,
             isAvailable: true,
-            warehouseMenuItems: {
-              some: {
-                warehouseId,
-                isAvailable: true,
-              },
+            menuId: {
+              in: activeMenuIds,
             },
           },
         },
@@ -647,34 +868,34 @@ export class MenuService {
           where: {
             isActive: true,
             isAvailable: true,
-            warehouseMenuItems: {
-              some: {
-                warehouseId,
-                isAvailable: true,
-              },
+            menuId: {
+              in: activeMenuIds,
             },
           },
           include: {
+            menu: true,
             category: true,
-            recipe: {
+            product: {
               include: {
-                ingredients: {
+                unit: true,
+                recipe: {
                   include: {
-                    product: {
+                    ingredients: {
                       include: {
+                        product: {
+                          include: {
+                            unit: true,
+                          },
+                        },
                         unit: true,
                       },
+                      orderBy: {
+                        sortOrder: 'asc',
+                      },
                     },
-                    unit: true,
-                  },
-                  orderBy: {
-                    sortOrder: 'asc',
                   },
                 },
               },
-            },
-            warehouseMenuItems: {
-              where: { warehouseId },
             },
           },
           orderBy: {
@@ -706,20 +927,24 @@ export class MenuService {
       unit: string;
     }[];
   }> {
-    // Получаем позицию меню с рецептом
     const menuItem = await prisma.menuItem.findUnique({
       where: { id: menuItemId },
       include: {
-        recipe: {
+        product: {
           include: {
-            ingredients: {
+            unit: true,
+            recipe: {
               include: {
-                product: {
+                ingredients: {
                   include: {
+                    product: {
+                      include: {
+                        unit: true,
+                      },
+                    },
                     unit: true,
                   },
                 },
-                unit: true,
               },
             },
           },
@@ -727,17 +952,21 @@ export class MenuService {
       },
     });
 
-    if (!menuItem || !menuItem.recipe) {
-      return { isAvailable: true, missingIngredients: [] };
+    if (!menuItem) {
+      throw new Error('Позиция меню не найдена');
+    }
+
+    // Если у продукта нет рецептуры, считаем что блюдо доступно
+    if (!menuItem.product?.recipe) {
+      return {
+        isAvailable: true,
+        missingIngredients: [],
+      };
     }
 
     const missingIngredients = [];
 
-    // Проверяем наличие каждого ингредиента
-    for (const ingredient of menuItem.recipe.ingredients) {
-      const requiredQuantity = Number(ingredient.quantity) * quantity;
-
-      // Получаем остаток на складе
+    for (const ingredient of menuItem.product.recipe.ingredients) {
       const stockBalance = await prisma.stockBalance.findUnique({
         where: {
           warehouseId_productId: {
@@ -748,6 +977,7 @@ export class MenuService {
       });
 
       const availableQuantity = stockBalance ? Number(stockBalance.quantity) : 0;
+      const requiredQuantity = Number(ingredient.quantity) * quantity;
 
       if (availableQuantity < requiredQuantity) {
         missingIngredients.push({
@@ -766,3 +996,5 @@ export class MenuService {
     };
   }
 }
+
+export const menuService = new MenuService();

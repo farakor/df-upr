@@ -64,8 +64,10 @@ const suppliersApi = {
     search?: string;
     isActive?: boolean;
   }): Promise<SuppliersResponse> => {
+    // api.get возвращает ApiResponse, внутри data содержится SuppliersResponse
     const response = await api.get('/suppliers', { params });
-    return response.data || response;
+    // Сервер возвращает { data: [...], pagination: {...} } без обертки ApiResponse
+    return response as unknown as SuppliersResponse;
   },
 
   getById: async (id: number): Promise<Supplier> => {

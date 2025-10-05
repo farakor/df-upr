@@ -197,7 +197,9 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
                 <Label htmlFor="parentId">Родительская категория</Label>
                 <select
                   id="parentId"
-                  {...register('parentId', { valueAsNumber: true })}
+                  {...register('parentId', { 
+                    setValueAs: (value) => value === '' ? undefined : Number(value)
+                  })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={!!parentCategory} // Заблокировано если создаем подкатегорию
                 >

@@ -4,6 +4,9 @@ import { menuController } from '@/controllers/menu.controller';
 import { authenticateToken } from '@/middleware/auth.middleware';
 import { validate } from '@/middleware/validation.middleware';
 import {
+  menuCreateSchema,
+  menuUpdateSchema,
+  menuFiltersSchema,
   menuCategoryCreateSchema,
   menuCategoryUpdateSchema,
   menuCategoryFiltersSchema,
@@ -11,6 +14,7 @@ import {
   menuItemUpdateSchema,
   menuItemFiltersSchema,
   warehouseMenuItemSchema,
+  warehouseMenuItemUpdateSchema,
   idParamSchema,
 } from '@/validation/menu.validation';
 
@@ -19,7 +23,23 @@ const router = Router();
 // Применяем аутентификацию ко всем маршрутам
 router.use(authenticateToken);
 
-// === МАРШРУТЫ ДЛЯ КАТЕГОРИЙ МЕНЮ ===
+// === МАРШРУТЫ ДЛЯ МЕНЮ ===
+
+// POST /api/menu - создание меню
+router.post(
+  '/',
+  validate({ body: menuCreateSchema }),
+  menuController.createMenu.bind(menuController)
+);
+
+// GET /api/menu - получение списка меню
+router.get(
+  '/',
+  validate({ query: menuFiltersSchema }),
+  menuController.getMenus.bind(menuController)
+);
+
+// === МАРШРУТЫ ДЛЯ КАТЕГОРИЙ МЕНЮ (ДОЛЖНЫ БЫТЬ ПЕРЕД :id) ===
 
 // POST /api/menu/categories - создание категории меню
 router.post(
@@ -56,7 +76,7 @@ router.delete(
   menuController.deleteMenuCategory.bind(menuController)
 );
 
-// === МАРШРУТЫ ДЛЯ ПОЗИЦИЙ МЕНЮ ===
+// === МАРШРУТЫ ДЛЯ ПОЗИЦИЙ МЕНЮ (ДОЛЖНЫ БЫТЬ ПЕРЕД :id) ===
 
 // POST /api/menu/items - создание позиции меню
 router.post(
@@ -93,32 +113,49 @@ router.delete(
   menuController.deleteMenuItem.bind(menuController)
 );
 
-// === МАРШРУТЫ ДЛЯ НАСТРОЕК МЕНЮ ПО СКЛАДАМ ===
+// === МАРШРУТЫ ДЛЯ ПРИВЯЗКИ МЕНЮ К СКЛАДАМ ===
 
-// POST /api/menu/warehouse-items - настройка позиции меню для склада
+// POST /api/menu/warehouse-menus - привязка меню к складу
 router.post(
-  '/warehouse-items',
+  '/warehouse-menus',
   validate({ body: warehouseMenuItemSchema }),
-  menuController.setWarehouseMenuItem.bind(menuController)
+  menuController.addWarehouseMenu.bind(menuController)
 );
 
-// GET /api/menu/warehouses/:warehouseId/items - получение настроек меню для склада
+// GET /api/menu/warehouses/:warehouseId/menus - получение меню для склада
 router.get(
-  '/warehouses/:warehouseId/items',
-  validate({ params: Joi.object({ warehouseId: Joi.number().integer().positive().required() }) }),
-  menuController.getWarehouseMenuItems.bind(menuController)
+  '/warehouses/:warehouseId/menus',
+  validate({ 
+    params: Joi.object({ 
+      warehouseId: Joi.number().integer().positive().required()
+    }) 
+  }),
+  menuController.getWarehouseMenus.bind(menuController)
 );
 
-// DELETE /api/menu/warehouses/:warehouseId/items/:menuItemId - удаление настройки позиции меню для склада
-router.delete(
-  '/warehouses/:warehouseId/items/:menuItemId',
+// PUT /api/menu/warehouses/:warehouseId/menus/:menuId - обновление привязки меню к складу
+router.put(
+  '/warehouses/:warehouseId/menus/:menuId',
   validate({ 
     params: Joi.object({ 
       warehouseId: Joi.number().integer().positive().required(),
-      menuItemId: Joi.number().integer().positive().required()
+      menuId: Joi.number().integer().positive().required()
+    }),
+    body: warehouseMenuItemUpdateSchema
+  }),
+  menuController.updateWarehouseMenu.bind(menuController)
+);
+
+// DELETE /api/menu/warehouses/:warehouseId/menus/:menuId - отвязка меню от склада
+router.delete(
+  '/warehouses/:warehouseId/menus/:menuId',
+  validate({ 
+    params: Joi.object({ 
+      warehouseId: Joi.number().integer().positive().required(),
+      menuId: Joi.number().integer().positive().required()
     }) 
   }),
-  menuController.removeWarehouseMenuItem.bind(menuController)
+  menuController.removeWarehouseMenu.bind(menuController)
 );
 
 // === МАРШРУТЫ ДЛЯ ПОЛУЧЕНИЯ ДОСТУПНОГО МЕНЮ ===
@@ -130,19 +167,42 @@ router.get(
   menuController.getAvailableMenu.bind(menuController)
 );
 
-// GET /api/menu/items/:menuItemId/availability/:warehouseId - проверка доступности блюда
+// GET /api/menu/items/:menuItemId/availability - проверка доступности блюда
 router.get(
-  '/items/:menuItemId/availability/:warehouseId',
+  '/items/:menuItemId/availability',
   validate({ 
     params: Joi.object({ 
-      menuItemId: Joi.number().integer().positive().required(),
-      warehouseId: Joi.number().integer().positive().required()
+      menuItemId: Joi.number().integer().positive().required()
     }),
     query: Joi.object({
+      warehouseId: Joi.number().integer().positive().required(),
       quantity: Joi.number().positive().optional()
     })
   }),
   menuController.checkMenuItemAvailability.bind(menuController)
+);
+
+// === МАРШРУТЫ ДЛЯ МЕНЮ С ПАРАМЕТРОМ :id (ДОЛЖНЫ БЫТЬ В КОНЦЕ) ===
+
+// GET /api/menu/:id - получение меню по ID
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  menuController.getMenuById.bind(menuController)
+);
+
+// PUT /api/menu/:id - обновление меню
+router.put(
+  '/:id',
+  validate({ params: idParamSchema, body: menuUpdateSchema }),
+  menuController.updateMenu.bind(menuController)
+);
+
+// DELETE /api/menu/:id - удаление меню
+router.delete(
+  '/:id',
+  validate({ params: idParamSchema }),
+  menuController.deleteMenu.bind(menuController)
 );
 
 export default router;

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Save } from 'lucide-react';
@@ -8,23 +8,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
+import { useRecipes } from '@/hooks/useRecipes';
 import { useCreateProduct, useUpdateProduct } from '@/hooks/useProducts';
 import type { Product, CreateProductData, UpdateProductData } from '@/types/nomenclature';
+
+// Вспомогательная функция для преобразования NaN в undefined
+const nanToUndefined = (val: any) => (typeof val === 'number' && isNaN(val) ? undefined : val);
 
 // Схема валидации
 const productSchema = z.object({
   name: z.string().min(1, 'Название обязательно').max(255, 'Название не может превышать 255 символов'),
   article: z.string().max(50, 'Артикул не может превышать 50 символов').optional(),
   barcode: z.string().max(50, 'Штрихкод не может превышать 50 символов').optional(),
-  categoryId: z.number().optional(),
+  categoryId: z.preprocess(nanToUndefined, z.number().optional()),
   unitId: z.number().min(1, 'Единица измерения обязательна'),
-  shelfLifeDays: z.number().min(0, 'Срок годности не может быть отрицательным').optional(),
-  storageTemperatureMin: z.number().min(-100, 'Минимальная температура не может быть меньше -100°C').max(100, 'Минимальная температура не может быть больше 100°C').optional(),
-  storageTemperatureMax: z.number().min(-100, 'Максимальная температура не может быть меньше -100°C').max(100, 'Максимальная температура не может быть больше 100°C').optional(),
+  isDish: z.boolean().default(false),
+  recipeId: z.preprocess(nanToUndefined, z.number().optional()),
+  shelfLifeDays: z.preprocess(nanToUndefined, z.number().min(0, 'Срок годности не может быть отрицательным').optional()),
+  storageTemperatureMin: z.preprocess(nanToUndefined, z.number().min(-100, 'Минимальная температура не может быть меньше -100°C').max(100, 'Минимальная температура не может быть больше 100°C').optional()),
+  storageTemperatureMax: z.preprocess(nanToUndefined, z.number().min(-100, 'Максимальная температура не может быть меньше -100°C').max(100, 'Максимальная температура не может быть больше 100°C').optional()),
   storageConditions: z.string().max(500, 'Условия хранения не могут превышать 500 символов').optional(),
   description: z.string().max(1000, 'Описание не может превышать 1000 символов').optional(),
+  isActive: z.boolean().default(true),
 }).refine((data) => {
   if (data.storageTemperatureMin !== undefined && data.storageTemperatureMax !== undefined) {
     return data.storageTemperatureMax > data.storageTemperatureMin;
@@ -33,6 +41,15 @@ const productSchema = z.object({
 }, {
   message: 'Максимальная температура должна быть больше минимальной',
   path: ['storageTemperatureMax'],
+}).refine((data) => {
+  // Если это блюдо, то рецептура обязательна
+  if (data.isDish && !data.recipeId) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Для блюда обязательно указать рецептуру',
+  path: ['recipeId'],
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -55,6 +72,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   // Хуки для данных
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const { data: units, isLoading: unitsLoading } = useUnits();
+  const { data: recipesData, isLoading: recipesLoading } = useRecipes({ isActive: true });
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
 
@@ -63,6 +81,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isSubmitting },
     watch,
     setValue,
@@ -74,11 +93,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       barcode: '',
       categoryId: undefined,
       unitId: undefined,
+      isDish: false,
+      recipeId: undefined,
       shelfLifeDays: undefined,
       storageTemperatureMin: undefined,
       storageTemperatureMax: undefined,
       storageConditions: '',
       description: '',
+      isActive: true,
     },
   });
 
@@ -91,11 +113,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         barcode: product.barcode || '',
         categoryId: product.categoryId || undefined,
         unitId: product.unitId,
+        isDish: product.isDish,
+        recipeId: product.recipeId || undefined,
         shelfLifeDays: product.shelfLifeDays || undefined,
         storageTemperatureMin: product.storageTemperatureMin ? parseFloat(product.storageTemperatureMin) : undefined,
         storageTemperatureMax: product.storageTemperatureMax ? parseFloat(product.storageTemperatureMax) : undefined,
         storageConditions: product.storageConditions || '',
         description: product.description || '',
+        isActive: product.isActive,
       });
     } else if (!product && isOpen) {
       reset({
@@ -104,11 +129,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         barcode: '',
         categoryId: undefined,
         unitId: undefined,
+        isDish: false,
+        recipeId: undefined,
         shelfLifeDays: undefined,
         storageTemperatureMin: undefined,
         storageTemperatureMax: undefined,
         storageConditions: '',
         description: '',
+        isActive: true,
       });
     }
   }, [product, isOpen, reset]);
@@ -116,13 +144,19 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   // Обработка отправки формы
   const onSubmit = async (data: ProductFormData) => {
     try {
-      // Очистка пустых строк
+      // Очистка пустых строк и NaN значений
       const cleanData = {
         ...data,
         article: data.article?.trim() || undefined,
         barcode: data.barcode?.trim() || undefined,
         storageConditions: data.storageConditions?.trim() || undefined,
         description: data.description?.trim() || undefined,
+        // Преобразуем NaN в undefined для необязательных полей
+        categoryId: data.categoryId && !isNaN(data.categoryId) ? data.categoryId : undefined,
+        recipeId: data.recipeId && !isNaN(data.recipeId) ? data.recipeId : undefined,
+        shelfLifeDays: data.shelfLifeDays && !isNaN(data.shelfLifeDays) ? data.shelfLifeDays : undefined,
+        storageTemperatureMin: data.storageTemperatureMin && !isNaN(data.storageTemperatureMin) ? data.storageTemperatureMin : undefined,
+        storageTemperatureMax: data.storageTemperatureMax && !isNaN(data.storageTemperatureMax) ? data.storageTemperatureMax : undefined,
       };
 
       if (isEditing && product) {
@@ -150,8 +184,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   if (!isOpen) return null;
 
-  const isLoading = categoriesLoading || unitsLoading;
+  const isLoading = categoriesLoading || unitsLoading || recipesLoading;
   const isMutating = createProductMutation.isPending || updateProductMutation.isPending;
+  const recipes = recipesData?.recipes || [];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -252,6 +287,57 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   </div>
                 </div>
 
+                {/* Флаг "Блюдо" */}
+                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-md border border-blue-200">
+                  <Controller
+                    name="isDish"
+                    control={control}
+                    render={({ field }) => (
+                      <>
+                        <Switch
+                          id="isDish"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                        <Label htmlFor="isDish" className="cursor-pointer">
+                          <span className="font-medium">Это готовое блюдо</span>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Для блюд обязательно указывается рецептура
+                          </p>
+                        </Label>
+                      </>
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="recipeId">
+                    Рецептура {watch('isDish') && <span className="text-red-600">*</span>}
+                  </Label>
+                  <select
+                    id="recipeId"
+                    {...register('recipeId', { valueAsNumber: true })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">
+                      {watch('isDish') ? 'Выберите рецептуру' : 'Без рецепта (простой продукт)'}
+                    </option>
+                    {recipes.map(recipe => (
+                      <option key={recipe.id} value={recipe.id}>
+                        {recipe.name} (порция: {recipe.portionSize})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.recipeId && (
+                    <p className="text-sm text-red-600 mt-1">{errors.recipeId.message}</p>
+                  )}
+                  {!watch('isDish') && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Если товар является готовым блюдом, включите флаг "Это готовое блюдо" выше
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <Label htmlFor="description">Описание</Label>
                   <textarea
@@ -264,6 +350,26 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   {errors.description && (
                     <p className="text-sm text-red-600 mt-1">{errors.description.message}</p>
                   )}
+                </div>
+
+                {/* Статус товара */}
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-md">
+                  <Controller
+                    name="isActive"
+                    control={control}
+                    render={({ field }) => (
+                      <>
+                        <Switch
+                          id="isActive"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                        <Label htmlFor="isActive" className="cursor-pointer">
+                          {field.value ? 'Статус: Активен' : 'Статус: Неактивен'}
+                        </Label>
+                      </>
+                    )}
+                  />
                 </div>
               </div>
 

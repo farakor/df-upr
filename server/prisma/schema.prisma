@@ -37,6 +37,9 @@ model User {
   productionLogs   ProductionLog[] @relation("ProductionLogCreator")
   reports          Report[]      @relation("ReportCreator")
   inventoryItems   InventoryItem[] @relation("InventoryItemCounter")
+  auditLogs        AuditLog[]    @relation("AuditLogUser")
+  systemSettings   SystemSetting[] @relation("SystemSettingUpdatedBy")
+  backupLogs       BackupLog[]   @relation("BackupLogCreator")
 
   @@map("users")
 }
@@ -76,15 +79,15 @@ model Warehouse {
   updatedAt DateTime      @updatedAt @map("updated_at")
 
   // Связи
-  manager            User?               @relation("WarehouseManager", fields: [managerId], references: [id])
-  stockBalances      StockBalance[]
-  stockMovements     StockMovement[]
-  documentsFrom      Document[]          @relation("DocumentWarehouseFrom")
-  documentsTo        Document[]          @relation("DocumentWarehouseTo")
-  inventories        Inventory[]
-  sales              Sale[]
-  productionLogs     ProductionLog[]
-  warehouseMenuItems WarehouseMenuItem[]
+  manager        User?              @relation("WarehouseManager", fields: [managerId], references: [id])
+  stockBalances  StockBalance[]
+  stockMovements StockMovement[]
+  documentsFrom  Document[]         @relation("DocumentWarehouseFrom")
+  documentsTo    Document[]         @relation("DocumentWarehouseTo")
+  inventories    Inventory[]
+  sales          Sale[]
+  productionLogs ProductionLog[]
+  warehouseMenus WarehouseMenu[]
 
   @@map("warehouses")
 }
@@ -170,6 +173,8 @@ model Product {
   barcode                String?
   categoryId             Int?     @map("category_id")
   unitId                 Int      @map("unit_id")
+  isDish                 Boolean  @default(false) @map("is_dish")
+  recipeId               Int?     @map("recipe_id")
   shelfLifeDays          Int?     @map("shelf_life_days")
   storageTemperatureMin  Decimal? @map("storage_temperature_min") @db.Decimal(4, 1)
   storageTemperatureMax  Decimal? @map("storage_temperature_max") @db.Decimal(4, 1)
@@ -182,12 +187,14 @@ model Product {
   // Связи
   category          Category?          @relation(fields: [categoryId], references: [id])
   unit              Unit               @relation(fields: [unitId], references: [id])
+  recipe            Recipe?            @relation(fields: [recipeId], references: [id])
   recipeIngredients RecipeIngredient[]
   stockBalances     StockBalance[]
   stockMovements    StockMovement[]
   documentItems     DocumentItem[]
   inventoryItems    InventoryItem[]
   productionLogItems ProductionLogItem[]
+  menuItems         MenuItem[]
 
   @@map("products")
 }
@@ -212,8 +219,8 @@ model Recipe {
   // Связи
   createdBy    User?              @relation("RecipeCreator", fields: [createdById], references: [id])
   ingredients  RecipeIngredient[]
-  menuItems    MenuItem[]
   productionLogs ProductionLog[]
+  products     Product[]
 
   @@map("recipes")
 }
@@ -238,6 +245,23 @@ model RecipeIngredient {
 }
 
 // Меню
+model Menu {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  menuItems       MenuItem[]
+  warehouseMenus  WarehouseMenu[]
+
+  @@map("menus")
+}
+
 model MenuCategory {
   id          Int      @id @default(autoincrement())
   name        String
@@ -254,10 +278,11 @@ model MenuCategory {
 
 model MenuItem {
   id          Int     @id @default(autoincrement())
+  menuId      Int?    @map("menu_id")
+  productId   Int?    @map("product_id")
+  categoryId  Int?    @map("category_id")
   name        String
   description String?
-  recipeId    Int?    @map("recipe_id")
-  categoryId  Int?    @map("category_id")
   price       Decimal @db.Decimal(10, 2)
   costPrice   Decimal? @map("cost_price") @db.Decimal(10, 2)
   imageUrl    String? @map("image_url")
@@ -268,28 +293,28 @@ model MenuItem {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Связи
-  recipe             Recipe?             @relation(fields: [recipeId], references: [id])
-  category           MenuCategory?       @relation(fields: [categoryId], references: [id])
-  warehouseMenuItems WarehouseMenuItem[]
-  saleItems          SaleItem[]
+  menu      Menu?         @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  product   Product?      @relation(fields: [productId], references: [id])
+  category  MenuCategory? @relation(fields: [categoryId], references: [id])
+  saleItems SaleItem[]
 
   @@map("menu_items")
 }
 
-model WarehouseMenuItem {
-  id            Int     @id @default(autoincrement())
-  warehouseId   Int     @map("warehouse_id")
-  menuItemId    Int     @map("menu_item_id")
-  isAvailable   Boolean @default(true) @map("is_available")
-  priceOverride Decimal? @map("price_override") @db.Decimal(10, 2)
-  createdAt     DateTime @default(now()) @map("created_at")
+model WarehouseMenu {
+  id          Int      @id @default(autoincrement())
+  warehouseId Int      @map("warehouse_id")
+  menuId      Int      @map("menu_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Связи
   warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menu      Menu      @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
-  @@unique([warehouseId, menuItemId])
-  @@map("warehouse_menu_items")
+  @@unique([warehouseId, menuId])
+  @@map("warehouse_menus")
 }
 
 // Складские операции
@@ -573,4 +598,106 @@ enum ReportType {
   COST_ANALYSIS
 
   @@map("report_type")
+}
+
+// Аудит действий пользователей
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    Int?     @map("entity_id")
+  changes     Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  user User? @relation("AuditLogUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Системные настройки
+model SystemSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       Json
+  category    String
+  description String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  updatedBy   Int?     @map("updated_by")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  updatedByUser User? @relation("SystemSettingUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@map("system_settings")
+}
+
+// Права доступа (для будущего расширения)
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  resource    String
+  action      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Связи
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int      @id @default(autoincrement())
+  role         UserRole
+  permissionId Int      @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Связи
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
+// Резервные копии
+model BackupLog {
+  id          Int          @id @default(autoincrement())
+  filename    String
+  size        BigInt
+  status      BackupStatus @default(IN_PROGRESS)
+  type        BackupType   @default(MANUAL)
+  startedAt   DateTime     @default(now()) @map("started_at")
+  completedAt DateTime?    @map("completed_at")
+  error       String?
+  createdById Int?         @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  // Связи
+  createdBy User? @relation("BackupLogCreator", fields: [createdById], references: [id])
+
+  @@map("backup_logs")
+}
+
+enum BackupStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+
+  @@map("backup_status")
+}
+
+enum BackupType {
+  MANUAL
+  AUTOMATIC
+  SCHEDULED
+
+  @@map("backup_type")
 }

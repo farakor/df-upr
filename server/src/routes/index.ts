@@ -13,6 +13,10 @@ import menuRoutes from './menu.routes';
 import inventoryRoutes from './inventory.routes';
 import salesRoutes from './sales.routes';
 import reportsRoutes from './reports.routes';
+import usersRoutes from './users.routes';
+import auditRoutes from './audit.routes';
+import systemSettingsRoutes from './systemSettings.routes';
+import backupRoutes from './backup.routes';
 
 const router = Router();
 
@@ -31,5 +35,11 @@ router.use('/menu', menuRoutes);
 router.use('/inventories', inventoryRoutes);
 router.use('/sales', salesRoutes);
 router.use('/reports', reportsRoutes);
+
+// Административные маршруты
+router.use('/users', usersRoutes);
+router.use('/audit', auditRoutes);
+router.use('/settings', systemSettingsRoutes);
+router.use('/backups', backupRoutes);
 
 export default router;

@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Download, Upload, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Filter, Download, Upload, Edit, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { ProductForm } from '@/components/forms/ProductForm';
-import { useProducts, useDeleteProduct, useExportProducts } from '@/hooks/useProducts';
+import { ProductViewDialog } from '@/components/common/ProductViewDialog';
+import { useProducts, useExportProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useUnits } from '@/hooks/useUnits';
 import type { ProductFilters, Product } from '@/types/nomenclature';
@@ -18,18 +19,19 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
     limit: 20,
     sortBy: 'name',
     sortOrder: 'asc',
-    isActive: true,
+    // isActive не установлен - показываем все товары по умолчанию
   });
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   // Запросы данных
   const { data: productsData, isLoading, error } = useProducts(filters);
   const { data: categories } = useCategories();
   const { data: units } = useUnits();
-  const deleteProductMutation = useDeleteProduct();
   const exportProductsMutation = useExportProducts();
 
   // Обработчики
@@ -69,13 +71,6 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
     }
   };
 
-  const handleDeleteProduct = async (productId: number) => {
-    if (window.confirm('Вы уверены, что хотите удалить этот товар?')) {
-      await deleteProductMutation.mutateAsync(productId);
-      setSelectedProducts(prev => prev.filter(id => id !== productId));
-    }
-  };
-
   const handleExportProducts = () => {
     exportProductsMutation.mutate(filters);
   };
@@ -97,6 +92,16 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
 
   const handleProductFormSuccess = () => {
     // Форма сама закроется и обновит данные через React Query
+  };
+
+  const handleViewProduct = (product: Product) => {
+    setViewingProduct(product);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleCloseViewDialog = () => {
+    setIsViewDialogOpen(false);
+    setViewingProduct(null);
   };
 
   // Мемоизированные значения
@@ -218,12 +223,16 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
                 Статус
               </label>
               <select
-                value={filters.isActive ? 'active' : 'inactive'}
-                onChange={(e) => handleFilterChange('isActive', e.target.value === 'active')}
+                value={filters.isActive === undefined ? 'all' : filters.isActive ? 'active' : 'inactive'}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  handleFilterChange('isActive', value === 'all' ? undefined : value === 'active');
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="active">Активные</option>
-                <option value="inactive">Неактивные</option>
+                <option value="all">Все товары</option>
+                <option value="active">Только активные</option>
+                <option value="inactive">Только неактивные</option>
               </select>
             </div>
           </div>
@@ -313,8 +322,15 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
                       </td>
                       <td className="px-4 py-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.name}
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {product.name}
+                            </span>
+                            {product.recipe && (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800" title={`Готовое блюдо: ${product.recipe.name}`}>
+                                🍽️ Рецепт
+                              </span>
+                            )}
                           </div>
                           {product.description && (
                             <div className="text-sm text-gray-500 truncate max-w-xs">
@@ -346,7 +362,7 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {/* TODO: Открыть модал просмотра */}}
+                            onClick={() => handleViewProduct(product)}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -356,14 +372,6 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
                             onClick={() => handleEditProduct(product)}
                           >
                             <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            disabled={deleteProductMutation.isPending}
-                          >
-                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </td>
@@ -414,6 +422,13 @@ export const ProductsListPage: React.FC<ProductsListPageProps> = () => {
         isOpen={isProductFormOpen}
         onClose={handleCloseProductForm}
         onSuccess={handleProductFormSuccess}
+      />
+
+      {/* Просмотр товара */}
+      <ProductViewDialog
+        product={viewingProduct}
+        isOpen={isViewDialogOpen}
+        onClose={handleCloseViewDialog}
       />
     </div>
   );

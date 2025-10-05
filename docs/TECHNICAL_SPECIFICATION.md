@@ -22,9 +22,10 @@
 | React | 18.x | Основной UI фреймворк |
 | TypeScript | 5.x | Типизация |
 | Vite | 4.x | Сборщик и dev сервер |
-| Material-UI | 5.x | UI компоненты |
+| Tailwind CSS | 3.x | Стили |
+| Shadcn/UI | - | UI компоненты |
 | React Router | 6.x | Маршрутизация |
-| React Query | 4.x | Управление состоянием сервера |
+| React Query | 5.x | Управление состоянием сервера |
 | React Hook Form | 7.x | Управление формами |
 | Chart.js | 4.x | Графики и диаграммы |
 | Axios | 1.x | HTTP клиент |

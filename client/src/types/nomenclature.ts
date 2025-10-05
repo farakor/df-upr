@@ -46,6 +46,8 @@ export interface Product {
   barcode?: string;
   categoryId?: number;
   unitId: number;
+  isDish: boolean;
+  recipeId?: number;
   shelfLifeDays?: number;
   storageTemperatureMin?: string;
   storageTemperatureMax?: string;
@@ -56,6 +58,30 @@ export interface Product {
   updatedAt: string;
   category?: Category;
   unit: Unit;
+  recipe?: {
+    id: number;
+    name: string;
+    description?: string;
+    portionSize: string;
+    cookingTime?: number;
+    costPrice?: string;
+    sellingPrice?: string;
+    ingredients?: {
+      id: number;
+      productId: number;
+      quantity: string;
+      unitId: number;
+      product: {
+        id: number;
+        name: string;
+      };
+      unit: {
+        id: number;
+        name: string;
+        shortName: string;
+      };
+    }[];
+  };
   stockBalances?: StockBalance[];
 }
 
@@ -82,11 +108,14 @@ export interface CreateProductData {
   barcode?: string;
   categoryId?: number;
   unitId: number;
+  isDish?: boolean;
+  recipeId?: number;
   shelfLifeDays?: number;
   storageTemperatureMin?: number;
   storageTemperatureMax?: number;
   storageConditions?: string;
   description?: string;
+  isActive?: boolean;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {

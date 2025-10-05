@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,14 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/Dialog';
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/textarea';
 
 import { useProducts } from '@/hooks/useProducts';
 import { useUnits } from '@/hooks/useUnits';
-import { useCalculateRecipeCost } from '@/hooks/useRecipes';
-import type { CreateRecipeData, RecipeIngredientInput } from '@/types/recipes';
+import { useCalculateRecipeCost, useRecipe } from '@/hooks/useRecipes';
+import type { CreateRecipeData, RecipeIngredientInput, Recipe } from '@/types/recipes';
 import { difficultyLabels } from '@/types/recipes';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -48,6 +48,7 @@ interface RecipeFormProps {
   onClose: () => void;
   onSubmit: (data: CreateRecipeData) => void;
   isLoading?: boolean;
+  recipeId?: number; // Для редактирования
 }
 
 export const RecipeForm: React.FC<RecipeFormProps> = ({
@@ -55,12 +56,17 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
   onClose,
   onSubmit,
   isLoading = false,
+  recipeId,
 }) => {
   const [costCalculation, setCostCalculation] = useState<any>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const { data: products } = useProducts();
   const { data: units } = useUnits();
+  const { data: recipe } = useRecipe(recipeId || 0, !!recipeId && isOpen);
   const calculateCostMutation = useCalculateRecipeCost();
+
+  const isEditMode = !!recipeId;
 
   const {
     register,
@@ -84,6 +90,28 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
     },
   });
 
+  // Заполняем форму при редактировании
+  useEffect(() => {
+    if (recipe && isEditMode) {
+      reset({
+        name: recipe.name,
+        description: recipe.description || '',
+        portionSize: parseFloat(recipe.portionSize),
+        cookingTime: recipe.cookingTime || undefined,
+        difficultyLevel: recipe.difficultyLevel || undefined,
+        instructions: recipe.instructions || '',
+        marginPercent: recipe.marginPercent ? parseFloat(recipe.marginPercent) : 0,
+        ingredients: recipe.ingredients?.map(ing => ({
+          productId: ing.productId,
+          quantity: parseFloat(ing.quantity),
+          unitId: ing.unitId,
+          costPerUnit: ing.costPerUnit ? parseFloat(ing.costPerUnit) : undefined,
+          isMain: ing.isMain,
+        })) || [],
+      });
+    }
+  }, [recipe, isEditMode, reset]);
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'ingredients',
@@ -92,22 +120,37 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
   const watchedIngredients = watch('ingredients');
   const watchedMarginPercent = watch('marginPercent');
 
-  // Автоматический расчет стоимости при изменении ингредиентов
+  // Автоматический расчет стоимости при изменении ингредиентов (с debounce)
   useEffect(() => {
+    // Очищаем предыдущий таймер
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
     if (watchedIngredients && watchedIngredients.length > 0) {
       const validIngredients = watchedIngredients.filter(
         (ing) => ing.productId && ing.quantity > 0 && ing.unitId
       );
       
       if (validIngredients.length > 0) {
-        calculateCostMutation.mutate(validIngredients, {
-          onSuccess: (data) => {
-            setCostCalculation(data);
-          },
-        });
+        // Устанавливаем новый таймер с задержкой 800мс
+        debounceTimerRef.current = setTimeout(() => {
+          calculateCostMutation.mutate(validIngredients, {
+            onSuccess: (data) => {
+              setCostCalculation(data);
+            },
+          });
+        }, 800);
       }
     }
-  }, [watchedIngredients, calculateCostMutation]);
+
+    // Очищаем таймер при размонтировании
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [watchedIngredients]);
 
   // Расчет цены продажи при изменении наценки
   const sellingPrice = costCalculation && watchedMarginPercent 
@@ -129,7 +172,16 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
   };
 
   const handleClose = () => {
-    reset();
+    reset({
+      name: '',
+      description: '',
+      portionSize: 1,
+      cookingTime: undefined,
+      difficultyLevel: undefined,
+      instructions: '',
+      marginPercent: 0,
+      ingredients: [],
+    });
     setCostCalculation(null);
     onClose();
   };
@@ -145,8 +197,11 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ChefHat className="h-5 w-5" />
-            Создать новый рецепт
+            {isEditMode ? 'Редактировать рецепт' : 'Создать новый рецепт'}
           </DialogTitle>
+          <DialogDescription>
+            Укажите название, ингредиенты и параметры приготовления для рецепта
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
@@ -406,7 +461,10 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
               Отмена
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Создание...' : 'Создать рецепт'}
+              {isLoading 
+                ? (isEditMode ? 'Сохранение...' : 'Создание...') 
+                : (isEditMode ? 'Сохранить' : 'Создать рецепт')
+              }
             </Button>
           </div>
         </form>
@@ -414,3 +472,4 @@ export const RecipeForm: React.FC<RecipeFormProps> = ({
     </Dialog>
   );
 };
+

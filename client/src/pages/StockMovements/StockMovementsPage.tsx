@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search, TrendingUp, TrendingDown, ArrowRightLeft, Package, Calendar, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, TrendingUp, TrendingDown, ArrowRightLeft, Package, Calendar, Filter, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -44,6 +45,7 @@ const movementTypeIcons = {
 };
 
 export function StockMovementsPage() {
+  const navigate = useNavigate();
   const [warehouseFilter, setWarehouseFilter] = useState<string>('');
   const [productFilter, setProductFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
@@ -86,11 +88,17 @@ export function StockMovementsPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Заголовок */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">История движений товаров</h1>
-        <p className="text-muted-foreground">
-          Просмотр всех движений товаров по складам
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">История движений товаров</h1>
+          <p className="text-muted-foreground">
+            Просмотр всех движений товаров по складам
+          </p>
+        </div>
+        <Button onClick={() => navigate('/stock-movements/create')}>
+          <Plus className="h-4 w-4 mr-2" />
+          Создать перемещение
+        </Button>
       </div>
 
       {/* Фильтры */}
@@ -130,7 +138,7 @@ export function StockMovementsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Все товары</SelectItem>
-                  {products?.data?.slice(0, 50).map((product) => (
+                  {products?.products?.slice(0, 50).map((product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
                       {product.name}
                     </SelectItem>
@@ -284,17 +292,17 @@ export function StockMovementsPage() {
                         <div>
                           <p className="text-sm text-muted-foreground">Количество</p>
                           <p className="font-semibold">
-                            {movement.quantity > 0 ? '+' : ''}{movement.quantity.toFixed(2)} {movement.product.unit.shortName}
+                            {Number(movement.quantity) > 0 ? '+' : ''}{Number(movement.quantity).toFixed(2)} {movement.product.unit.shortName}
                           </p>
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Цена за единицу</p>
-                          <p className="font-semibold">{movement.price.toFixed(2)} ₽</p>
+                          <p className="font-semibold">{Number(movement.price).toFixed(2)} ₽</p>
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Сумма</p>
                           <p className="font-semibold">
-                            {(Math.abs(movement.quantity) * movement.price).toFixed(2)} ₽
+                            {(Math.abs(Number(movement.quantity)) * Number(movement.price)).toFixed(2)} ₽
                           </p>
                         </div>
                         <div>

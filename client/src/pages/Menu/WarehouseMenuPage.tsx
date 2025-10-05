@@ -1,67 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Store, UtensilsCrossed, CheckCircle, AlertTriangle, Trash2, Settings } from 'lucide-react';
+import { Plus, Store, UtensilsCrossed, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/Badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/Dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/spinner';
-import { Input } from '@/components/ui/input';
-import { useMenuItems } from '../../hooks/useMenuItems';
+import { useMenu } from '../../hooks/useMenu';
 import { useWarehouses } from '../../hooks/useWarehouses';
 
 const WarehouseMenuPage: React.FC = () => {
   const {
-    items: allMenuItems,
-    loading: itemsLoading,
-    error: itemsError,
-    fetchItems,
-    setWarehouseMenuItem,
-    getWarehouseMenuItems,
-    removeWarehouseMenuItem,
-    checkItemAvailability,
-  } = useMenuItems();
+    menus: allMenus,
+    loading: menusLoading,
+    error: menusError,
+    fetchMenus,
+    addWarehouseMenu,
+    getWarehouseMenus,
+    updateWarehouseMenu,
+    removeWarehouseMenu,
+  } = useMenu();
 
   const { data: warehouses = [], isLoading: warehousesLoading } = useWarehouses();
 
   const [selectedWarehouse, setSelectedWarehouse] = useState<number | ''>('');
-  const [warehouseMenuItems, setWarehouseMenuItems] = useState<any[]>([]);
-  const [availabilityData, setAvailabilityData] = useState<Record<number, any>>({});
+  const [warehouseMenus, setWarehouseMenus] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [availableItems, setAvailableItems] = useState<any[]>([]);
+  const [availableMenus, setAvailableMenus] = useState<any[]>([]);
+  const [selectedMenuId, setSelectedMenuId] = useState<string>('');
 
   useEffect(() => {
-    fetchItems({ isActive: true });
+    fetchMenus({ isActive: true });
   }, []);
 
   useEffect(() => {
     if (selectedWarehouse) {
-      loadWarehouseMenu();
+      loadWarehouseMenus();
+    } else {
+      setWarehouseMenus([]);
     }
   }, [selectedWarehouse]);
 
-  const loadWarehouseMenu = async () => {
+  const loadWarehouseMenus = async () => {
     if (!selectedWarehouse) return;
 
     setLoading(true);
     setError(null);
     try {
-      const items = await getWarehouseMenuItems(selectedWarehouse as number);
-      setWarehouseMenuItems(items);
-
-      // Проверяем доступность каждого блюда
-      const availability: Record<number, any> = {};
-      for (const item of items) {
-        if (item.recipe) {
-          const result = await checkItemAvailability(item.id, selectedWarehouse as number);
-          if (result) {
-            availability[item.id] = result;
-          }
-        }
-      }
-      setAvailabilityData(availability);
+      const menus = await getWarehouseMenus(selectedWarehouse as number);
+      setWarehouseMenus(menus);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки меню склада');
     } finally {
@@ -71,318 +60,227 @@ const WarehouseMenuPage: React.FC = () => {
 
   const handleWarehouseChange = (value: string) => {
     setSelectedWarehouse(value === '' ? '' : parseInt(value));
-    setWarehouseMenuItems([]);
-    setAvailabilityData({});
+    setWarehouseMenus([]);
   };
 
-  const handleAvailabilityToggle = async (menuItemId: number, isAvailable: boolean) => {
-    if (!selectedWarehouse) return;
+  const handleAddMenuClick = () => {
+    // Находим меню, которые еще не привязаны к складу
+    const attachedMenuIds = warehouseMenus.map(wm => wm.menu.id);
+    const available = allMenus.filter(menu => !attachedMenuIds.includes(menu.id) && menu.isActive);
+    setAvailableMenus(available);
+    setSelectedMenuId('');
+    setAddDialogOpen(true);
+  };
 
-    const success = await setWarehouseMenuItem({
+  const handleAddMenu = async () => {
+    if (!selectedWarehouse || !selectedMenuId) return;
+
+    const menuId = parseInt(selectedMenuId);
+    const success = await addWarehouseMenu({
       warehouseId: selectedWarehouse as number,
-      menuItemId,
-      isAvailable,
+      menuId,
+      isActive: true,
     });
 
     if (success) {
-      await loadWarehouseMenu();
+      await loadWarehouseMenus();
+      setAddDialogOpen(false);
+      setSelectedMenuId('');
     }
   };
 
-  const handlePriceOverride = async (menuItemId: number, priceOverride: number | null) => {
+  const handleToggleActive = async (menuId: number, currentActive: boolean) => {
     if (!selectedWarehouse) return;
 
-    const success = await setWarehouseMenuItem({
-      warehouseId: selectedWarehouse as number,
-      menuItemId,
-      priceOverride,
-    });
+    const success = await updateWarehouseMenu(
+      selectedWarehouse as number,
+      menuId,
+      { isActive: !currentActive }
+    );
 
     if (success) {
-      await loadWarehouseMenu();
+      await loadWarehouseMenus();
     }
   };
 
-  const handleRemoveItem = async (menuItemId: number) => {
+  const handleRemoveMenu = async (menuId: number) => {
     if (!selectedWarehouse) return;
 
-    if (window.confirm('Вы уверены, что хотите удалить эту позицию из меню склада?')) {
-      const success = await removeWarehouseMenuItem(selectedWarehouse as number, menuItemId);
+    if (window.confirm('Вы уверены, что хотите отвязать это меню от склада?')) {
+      const success = await removeWarehouseMenu(selectedWarehouse as number, menuId);
       if (success) {
-        await loadWarehouseMenu();
+        await loadWarehouseMenus();
       }
     }
   };
 
-  const handleOpenAddDialog = () => {
-    // Фильтруем позиции, которых еще нет в меню склада
-    const existingItemIds = warehouseMenuItems.map(item => item.id);
-    const available = allMenuItems.filter(item => !existingItemIds.includes(item.id));
-    setAvailableItems(available);
-    setAddDialogOpen(true);
-  };
-
-  const handleAddItem = async (menuItemId: number) => {
-    if (!selectedWarehouse) return;
-
-    const success = await setWarehouseMenuItem({
-      warehouseId: selectedWarehouse as number,
-      menuItemId,
-      isAvailable: true,
-    });
-
-    if (success) {
-      setAddDialogOpen(false);
-      await loadWarehouseMenu();
-    }
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-    }).format(price);
-  };
-
-  const getAvailabilityStatus = (item: any) => {
-    const availability = availabilityData[item.id];
-    if (!availability) return null;
-
-    if (availability.isAvailable) {
-      return (
-        <Badge variant="default" className="flex items-center">
-          <CheckCircle className="mr-1 h-3 w-3" />
-          Доступно
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge variant="destructive" className="flex items-center">
-          <AlertTriangle className="mr-1 h-3 w-3" />
-          Недостает {availability.missingIngredients.length} ингр.
-        </Badge>
-      );
-    }
-  };
+  if (warehousesLoading || menusLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
+      {/* Заголовок */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Настройка меню по складам</h1>
           <p className="text-muted-foreground">
-            Управление доступностью позиций меню на различных складах
+            Привязка меню к складам для управления доступностью
           </p>
         </div>
       </div>
 
-      {(error || itemsError) && (
+      {/* Ошибки */}
+      {(error || menusError) && (
         <div className="rounded-md bg-destructive/15 p-3">
-          <div className="text-sm text-destructive">{error || itemsError}</div>
+          <div className="text-sm text-destructive">{error || menusError}</div>
         </div>
       )}
 
-      <div className="max-w-md">
-        <label htmlFor="warehouse" className="block text-sm font-medium mb-2">
-          Выберите склад
-        </label>
-        <Select value={selectedWarehouse?.toString() || ''} onValueChange={handleWarehouseChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Выберите склад" />
-          </SelectTrigger>
-          <SelectContent>
-            {warehouses.map((warehouse) => (
-              <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                {warehouse.name} ({warehouse.type})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Выбор склада */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="w-5 h-5" />
+            Выбор склада
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedWarehouse?.toString() || ''} onValueChange={handleWarehouseChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Выберите склад" />
+            </SelectTrigger>
+            <SelectContent>
+              {warehouses
+                .filter((w) => w.isActive)
+                .map((warehouse) => (
+                  <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                    {warehouse.name} ({warehouse.type === 'MAIN' ? 'Основной' : warehouse.type === 'KITCHEN' ? 'Кухня' : 'Торговая точка'})
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
+      {/* Меню склада */}
       {selectedWarehouse && (
-        <>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Store className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">
-                Меню склада: {warehouses.find(w => w.id === selectedWarehouse)?.name}
-              </h2>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <UtensilsCrossed className="w-5 h-5" />
+                Меню склада
+              </CardTitle>
+              <Button onClick={handleAddMenuClick} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Добавить меню
+              </Button>
             </div>
-            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={handleOpenAddDialog}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Добавить позицию
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle>Добавить позицию в меню склада</DialogTitle>
-                </DialogHeader>
-                <div className="max-h-[400px] overflow-y-auto">
-                  {availableItems.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UtensilsCrossed className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">
-                        Все доступные позиции уже добавлены в меню этого склада.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3">
-                      {availableItems.map((item) => (
-                        <Card key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleAddItem(item.id)}>
-                          <CardContent className="flex items-center space-x-4 p-4">
-                            <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={item.name}
-                                  className="w-full h-full object-cover rounded-md"
-                                />
-                              ) : (
-                                <UtensilsCrossed className="h-6 w-6 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium">{item.name}</h4>
-                              {item.category && (
-                                <Badge variant="outline" className="mt-1">
-                                  {item.category.name}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold text-primary">
-                                {formatPrice(item.price)}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {loading || itemsLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <Spinner size="lg" />
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {warehouseMenuItems.map((item) => {
-                const warehouseItem = item.warehouseMenuItems?.[0];
-                return (
-                  <Card key={item.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover rounded-md"
-                            />
-                          ) : (
-                            <UtensilsCrossed className="h-8 w-8 text-muted-foreground" />
-                          )}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold">{item.name}</h3>
-                            {item.category && (
-                              <Badge variant="outline">
-                                {item.category.name}
-                              </Badge>
-                            )}
-                          </div>
-                          {item.description && (
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {item.description}
-                            </p>
-                          )}
-                          <div className="flex items-center space-x-2">
-                            {getAvailabilityStatus(item)}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <div className="text-sm text-muted-foreground mb-1">
-                              Базовая цена
-                            </div>
-                            <div className="font-semibold">
-                              {formatPrice(item.price)}
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="text-sm text-muted-foreground mb-1">
-                              Цена на складе
-                            </div>
-                            <Input
-                              type="number"
-                              value={warehouseItem?.priceOverride || ''}
-                              onChange={(e) => {
-                                const value = e.target.value ? parseFloat(e.target.value) : null;
-                                handlePriceOverride(item.id, value);
-                              }}
-                              placeholder={formatPrice(item.price)}
-                              className="w-24 text-right"
-                              min="0"
-                              step="0.01"
-                            />
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={warehouseItem?.isAvailable || false}
-                                onChange={(e) => handleAvailabilityToggle(item.id, e.target.checked)}
-                                className="rounded border-gray-300"
-                              />
-                              <span className="text-sm">Активна</span>
-                            </label>
-                          </div>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveItem(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            ) : warehouseMenus.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Нет привязанных меню к этому складу
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {warehouseMenus.map((warehouseMenu) => (
+                  <div
+                    key={warehouseMenu.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold">{warehouseMenu.menu.name}</h3>
+                        <Badge variant={warehouseMenu.isActive ? 'default' : 'secondary'}>
+                          {warehouseMenu.isActive ? 'Активно' : 'Неактивно'}
+                        </Badge>
+                        <Badge variant="outline">
+                          {warehouseMenu.menu.menuItems?.length || 0} позиций
+                        </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {warehouseMenuItems.length === 0 && !loading && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <Store className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Меню склада пусто</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Добавьте позиции меню для этого склада, чтобы они стали доступны для продажи.
-                </p>
-                <Button onClick={handleOpenAddDialog}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Добавить позицию
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </>
+                      {warehouseMenu.menu.description && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {warehouseMenu.menu.description}
+                        </p>
+                      )}
+                      {(warehouseMenu.menu.startDate || warehouseMenu.menu.endDate) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {warehouseMenu.menu.startDate && `С ${new Date(warehouseMenu.menu.startDate).toLocaleDateString()}`}
+                          {warehouseMenu.menu.endDate && ` по ${new Date(warehouseMenu.menu.endDate).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleActive(warehouseMenu.menu.id, warehouseMenu.isActive)}
+                      >
+                        {warehouseMenu.isActive ? 'Деактивировать' : 'Активировать'}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleRemoveMenu(warehouseMenu.menu.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
+
+      {/* Диалог добавления меню */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить меню к складу</DialogTitle>
+            <DialogDescription>
+              Выберите меню, которое будет доступно для выбранного склада
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Выберите меню</label>
+              <Select value={selectedMenuId} onValueChange={setSelectedMenuId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите меню" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMenus.map((menu) => (
+                    <SelectItem key={menu.id} value={menu.id.toString()}>
+                      {menu.name}
+                      {menu.description && ` - ${menu.description}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button onClick={handleAddMenu} disabled={!selectedMenuId}>
+                Добавить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

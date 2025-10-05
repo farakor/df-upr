@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { unitsApi } from '@/services/api/units';
 import type {
   Unit,
-  UnitType,
+  UnitTypeType,
   CreateUnitData,
   UpdateUnitData,
   UnitConversion,
@@ -15,7 +15,7 @@ export const unitKeys = {
   lists: () => [...unitKeys.all, 'list'] as const,
   list: () => [...unitKeys.lists()] as const,
   base: () => [...unitKeys.all, 'base'] as const,
-  byType: (type: UnitType) => [...unitKeys.all, 'type', type] as const,
+  byType: (type: UnitTypeType) => [...unitKeys.all, 'type', type] as const,
   details: () => [...unitKeys.all, 'detail'] as const,
   detail: (id: number) => [...unitKeys.details(), id] as const,
   conversionChain: (id: number) => [...unitKeys.all, 'conversion-chain', id] as const,
@@ -40,7 +40,7 @@ export const useBaseUnits = () => {
 };
 
 // Хук для получения единиц измерения по типу
-export const useUnitsByType = (type: UnitType, enabled = true) => {
+export const useUnitsByType = (type: UnitTypeType, enabled = true) => {
   return useQuery({
     queryKey: unitKeys.byType(type),
     queryFn: () => unitsApi.getUnitsByType(type),

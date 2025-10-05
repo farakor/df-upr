@@ -29,7 +29,7 @@ export class ProductController {
       const filters: ProductFilters = {
         search: req.query.search as string,
         categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined,
-        isActive: req.query.isActive !== 'false',
+        isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
         unitId: req.query.unitId ? parseInt(req.query.unitId as string) : undefined,
       };
 

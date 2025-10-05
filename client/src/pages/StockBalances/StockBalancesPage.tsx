@@ -41,8 +41,13 @@ export function StockBalancesPage() {
 
   // Подсчет статистики
   const totalProducts = stockBalancesData?.data.length || 0;
-  const totalValue = stockBalancesData?.data.reduce((sum, balance) => sum + balance.totalValue, 0) || 0;
-  const lowStockItems = stockBalancesData?.data.filter(balance => balance.quantity < 10).length || 0;
+  const totalValue = Number(
+    stockBalancesData?.data.reduce((sum, balance) => {
+      const value = Number(balance.totalValue) || 0;
+      return sum + value;
+    }, 0) || 0
+  );
+  const lowStockItems = stockBalancesData?.data.filter(balance => Number(balance.quantity || 0) < 10).length || 0;
 
   if (error) {
     return (
@@ -206,12 +211,12 @@ export function StockBalancesPage() {
                           <div className="text-right">
                             <div className="flex items-center space-x-2">
                               <span className="text-2xl font-bold">
-                                {balance.quantity.toFixed(2)}
+                                {Number(balance.quantity || 0).toFixed(2)}
                               </span>
                               <span className="text-sm text-muted-foreground">
                                 {balance.product.unit.shortName}
                               </span>
-                              {balance.quantity < 10 && (
+                              {Number(balance.quantity || 0) < 10 && (
                                 <Badge variant="destructive" className="ml-2">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
                                   Низкий остаток
@@ -224,11 +229,11 @@ export function StockBalancesPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t">
                           <div>
                             <p className="text-sm text-muted-foreground">Средняя цена</p>
-                            <p className="font-semibold">{balance.avgPrice.toFixed(2)} ₽</p>
+                            <p className="font-semibold">{Number(balance.avgPrice || 0).toFixed(2)} ₽</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Общая стоимость</p>
-                            <p className="font-semibold">{balance.totalValue.toFixed(2)} ₽</p>
+                            <p className="font-semibold">{Number(balance.totalValue || 0).toFixed(2)} ₽</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Последнее движение</p>

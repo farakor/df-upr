@@ -35,6 +35,7 @@ export interface Recipe {
     id: number;
     firstName: string;
     lastName: string;
+    fullName: string;
   };
   ingredients: RecipeIngredient[];
   menuItems?: MenuItem[];

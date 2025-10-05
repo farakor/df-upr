@@ -34,12 +34,12 @@
 - [ ] Настройка ESLint, Prettier, Husky
 
 #### Frontend инфраструктура  
-- [ ] Создание React проекта с Vite
-- [ ] Настройка TypeScript конфигурации
-- [ ] Подключение Material-UI или Ant Design
-- [ ] Настройка React Router
-- [ ] Конфигурация Axios для API запросов
-- [ ] Настройка линтеров и форматтеров
+- [x] Создание React проекта с Vite
+- [x] Настройка TypeScript конфигурации
+- [x] Подключение Tailwind CSS и Shadcn/UI
+- [x] Настройка React Router
+- [x] Конфигурация Axios для API запросов
+- [x] Настройка линтеров и форматтеров
 
 #### DevOps
 - [ ] Настройка Git репозитория

@@ -27,6 +27,7 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
       },
     },
   },
@@ -37,7 +38,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          mui: ['@mui/material', '@mui/icons-material'],
           router: ['react-router-dom'],
           query: ['@tanstack/react-query'],
         },

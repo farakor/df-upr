@@ -158,11 +158,15 @@ export class ReportsService {
             include: {
               menuItem: {
                 include: {
-                  recipe: {
+                  product: {
                     include: {
-                      ingredients: {
+                      recipe: {
                         include: {
-                          product: true,
+                          ingredients: {
+                            include: {
+                              product: true,
+                            },
+                          },
                         },
                       },
                     },
@@ -182,8 +186,8 @@ export class ReportsService {
           let costPrice = 0;
           
           // Рассчитываем себестоимость через рецептуру
-          if (item.menuItem.recipe) {
-            for (const ingredient of item.menuItem.recipe.ingredients) {
+          if (item.menuItem.product?.recipe) {
+            for (const ingredient of item.menuItem.product.recipe.ingredients) {
               const avgPrice = await this.getAverageProductPrice(ingredient.productId);
               costPrice += Number(ingredient.quantity) * avgPrice;
             }
@@ -234,11 +238,15 @@ export class ReportsService {
         include: {
           menuItem: {
             include: {
-              recipe: {
+              product: {
                 include: {
-                  ingredients: {
+                  recipe: {
                     include: {
-                      product: true,
+                      ingredients: {
+                        include: {
+                          product: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -253,9 +261,9 @@ export class ReportsService {
       const productStats = new Map();
 
       for (const item of salesData) {
-        if (!item.menuItem.recipe) continue;
+        if (!item.menuItem.product?.recipe) continue;
 
-        for (const ingredient of item.menuItem.recipe.ingredients) {
+        for (const ingredient of item.menuItem.product.recipe.ingredients) {
           const productId = ingredient.productId;
           const usedQuantity = Number(ingredient.quantity) * Number(item.quantity);
           
@@ -272,7 +280,7 @@ export class ReportsService {
           }
 
           stats.totalQuantity += usedQuantity;
-          stats.totalRevenue += (Number(item.price) / (item.menuItem.recipe?.ingredients.length || 1)) * Number(item.quantity);
+          stats.totalRevenue += (Number(item.price) / (item.menuItem.product.recipe?.ingredients.length || 1)) * Number(item.quantity);
           stats.salesCount += Number(item.quantity);
           
           // Упрощенный расчет прибыли
@@ -348,11 +356,15 @@ export class ReportsService {
         include: {
           menuItem: {
             include: {
-              recipe: {
+              product: {
                 include: {
-                  ingredients: {
+                  recipe: {
                     include: {
-                      product: true,
+                      ingredients: {
+                        include: {
+                          product: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -372,13 +384,13 @@ export class ReportsService {
       const productPeriods = new Map();
 
       for (const item of salesData) {
-        if (!item.menuItem.recipe) continue;
+        if (!item.menuItem.product?.recipe) continue;
 
         const weekStart = new Date(item.sale.createdAt);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay());
         const weekKey = weekStart.toISOString().split('T')[0];
 
-        for (const ingredient of item.menuItem.recipe.ingredients) {
+        for (const ingredient of item.menuItem.product.recipe.ingredients) {
           const productId = ingredient.productId;
           const usedQuantity = Number(ingredient.quantity) * Number(item.quantity);
           

@@ -24,6 +24,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
+import foodcostLogo from '@/assets/foodcost-services-logo.svg';
+import farukBadge from '@/assets/faruk-badge.svg';
 
 interface SubMenuItem {
   id: string;
@@ -160,7 +162,7 @@ const menuItems: MenuItem[] = [
     label: 'Настройки',
     icon: <Settings className="h-5 w-5" />,
     path: '/settings',
-    roles: ['admin', 'manager'],
+    roles: ['ADMIN', 'MANAGER'],
   },
 ];
 
@@ -219,42 +221,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     });
   }, [location.pathname]);
 
-  const getRoleLabel = (role: string) => {
-    const roleLabels: Record<string, string> = {
-      admin: 'Администратор',
-      manager: 'Менеджер',
-      operator: 'Оператор',
-      viewer: 'Наблюдатель',
-    };
-    return roleLabels[role] || role;
-  };
-
   return (
     <div className="flex h-full flex-col">
       {/* Логотип и название */}
       <div className="border-b p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            DF
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold">DF-UPR</h1>
-            <p className="text-sm text-muted-foreground">Управление столовыми</p>
+        <div className="flex flex-col items-center gap-2">
+          <img 
+            src={foodcostLogo} 
+            alt="FoodCost Services" 
+            className="h-12 w-auto"
+          />
+          <div className="text-center text-xs text-muted-foreground">
+            Версия 1.0.0
           </div>
         </div>
       </div>
-
-      {/* Информация о пользователе */}
-      {state.user && (
-        <div className="border-b bg-muted/30 p-4">
-          <div className="text-sm font-medium">
-            {state.user.firstName} {state.user.lastName}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {getRoleLabel(state.user.role)}
-          </div>
-        </div>
-      )}
 
       {/* Меню навигации */}
       <nav className="flex-1 overflow-y-auto p-4">
@@ -329,10 +310,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
         </div>
       </nav>
 
-      {/* Версия приложения */}
+      {/* Разработчик */}
       <div className="border-t p-4">
-        <div className="text-center text-xs text-muted-foreground">
-          Версия 1.0.0
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-xs text-muted-foreground">Developed by</span>
+          <img 
+            src={farukBadge} 
+            alt="Faruk Oripov" 
+            className="h-8 w-auto"
+          />
         </div>
       </div>
     </div>

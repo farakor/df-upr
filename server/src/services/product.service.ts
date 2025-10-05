@@ -8,11 +8,13 @@ export interface ProductCreateInput {
   barcode?: string;
   categoryId?: number;
   unitId: number;
+  recipeId?: number;
   shelfLifeDays?: number;
   storageTemperatureMin?: number;
   storageTemperatureMax?: number;
   storageConditions?: string;
   description?: string;
+  isActive?: boolean;
 }
 
 export interface ProductUpdateInput {
@@ -21,6 +23,7 @@ export interface ProductUpdateInput {
   barcode?: string;
   categoryId?: number;
   unitId?: number;
+  recipeId?: number;
   shelfLifeDays?: number;
   storageTemperatureMin?: number;
   storageTemperatureMax?: number;
@@ -55,6 +58,16 @@ export class ProductService {
         include: {
           category: true,
           unit: true,
+          recipe: {
+            include: {
+              ingredients: {
+                include: {
+                  product: true,
+                  unit: true,
+                },
+              },
+            },
+          },
         },
       });
       return product;
@@ -73,10 +86,10 @@ export class ProductService {
     pagination: PaginationOptions = {}
   ): Promise<{ products: Product[]; total: number; page: number; totalPages: number }> {
     const { page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc' } = pagination;
-    const { search, categoryId, isActive = true, unitId } = filters;
+    const { search, categoryId, isActive, unitId } = filters;
 
     const where: Prisma.ProductWhereInput = {
-      isActive,
+      ...(isActive !== undefined && { isActive }),
       ...(categoryId && { categoryId }),
       ...(unitId && { unitId }),
       ...(search && {
@@ -95,6 +108,7 @@ export class ProductService {
         include: {
           category: true,
           unit: true,
+          recipe: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -119,6 +133,16 @@ export class ProductService {
       include: {
         category: true,
         unit: true,
+        recipe: {
+          include: {
+            ingredients: {
+              include: {
+                product: true,
+                unit: true,
+              },
+            },
+          },
+        },
         stockBalances: {
           include: {
             warehouse: true,
@@ -140,6 +164,7 @@ export class ProductService {
         include: {
           category: true,
           unit: true,
+          recipe: true,
         },
       });
       return product;
@@ -178,6 +203,7 @@ export class ProductService {
       include: {
         category: true,
         unit: true,
+        recipe: true,
       },
     });
   }
@@ -191,6 +217,7 @@ export class ProductService {
       include: {
         category: true,
         unit: true,
+        recipe: true,
       },
       orderBy: {
         name: 'asc',

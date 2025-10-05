@@ -53,6 +53,28 @@ export const productCreateSchema = Joi.object({
       'any.required': 'Единица измерения обязательна для заполнения',
     }),
 
+  isDish: Joi.boolean()
+    .optional()
+    .default(false)
+    .messages({
+      'boolean.base': 'Поле "Блюдо" должно быть булевым значением',
+    }),
+
+  recipeId: Joi.number()
+    .integer()
+    .positive()
+    .when('isDish', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    })
+    .messages({
+      'number.base': 'ID рецепта должно быть числом',
+      'number.integer': 'ID рецепта должно быть целым числом',
+      'number.positive': 'ID рецепта должно быть положительным числом',
+      'any.required': 'Для блюда обязательно указать рецептуру',
+    }),
+
   shelfLifeDays: Joi.number()
     .integer()
     .min(0)
@@ -105,6 +127,13 @@ export const productCreateSchema = Joi.object({
     .messages({
       'string.max': 'Описание не может превышать 1000 символов',
     }),
+
+  isActive: Joi.boolean()
+    .optional()
+    .default(true)
+    .messages({
+      'boolean.base': 'Статус активности должен быть булевым значением',
+    }),
 });
 
 export const productUpdateSchema = Joi.object({
@@ -156,6 +185,29 @@ export const productUpdateSchema = Joi.object({
       'number.base': 'ID единицы измерения должно быть числом',
       'number.integer': 'ID единицы измерения должно быть целым числом',
       'number.positive': 'ID единицы измерения должно быть положительным числом',
+    }),
+
+  isDish: Joi.boolean()
+    .optional()
+    .messages({
+      'boolean.base': 'Поле "Блюдо" должно быть булевым значением',
+    }),
+
+  recipeId: Joi.number()
+    .integer()
+    .positive()
+    .optional()
+    .allow(null)
+    .when('isDish', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional().allow(null),
+    })
+    .messages({
+      'number.base': 'ID рецепта должно быть числом',
+      'number.integer': 'ID рецепта должно быть целым числом',
+      'number.positive': 'ID рецепта должно быть положительным числом',
+      'any.required': 'Для блюда обязательно указать рецептуру',
     }),
 
   shelfLifeDays: Joi.number()

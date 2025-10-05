@@ -245,37 +245,37 @@ const InventoryAnalysis: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className={`text-sm font-medium ${
-                        item.quantityVariance > 0 ? 'text-green-600' : 
-                        item.quantityVariance < 0 ? 'text-red-600' : 'text-gray-900'
+                        Number(item.quantityVariance) > 0 ? 'text-green-600' : 
+                        Number(item.quantityVariance) < 0 ? 'text-red-600' : 'text-gray-900'
                       }`}>
-                        {item.quantityVariance > 0 ? '+' : ''}{item.quantityVariance}
+                        {Number(item.quantityVariance) > 0 ? '+' : ''}{Number(item.quantityVariance)}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className={`text-sm font-medium ${
-                        item.variancePercent > 0 ? 'text-green-600' : 
-                        item.variancePercent < 0 ? 'text-red-600' : 'text-gray-900'
+                        Number(item.variancePercent) > 0 ? 'text-green-600' : 
+                        Number(item.variancePercent) < 0 ? 'text-red-600' : 'text-gray-900'
                       }`}>
-                        {item.variancePercent > 0 ? '+' : ''}{item.variancePercent.toFixed(1)}%
+                        {Number(item.variancePercent) > 0 ? '+' : ''}{Number(item.variancePercent).toFixed(1)}%
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-900">
-                      {item.price.toFixed(2)} ₽
+                      {Number(item.price).toFixed(2)} ₽
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className={`text-sm font-medium ${
-                        item.valueVariance > 0 ? 'text-green-600' : 
-                        item.valueVariance < 0 ? 'text-red-600' : 'text-gray-900'
+                        Number(item.valueVariance) > 0 ? 'text-green-600' : 
+                        Number(item.valueVariance) < 0 ? 'text-red-600' : 'text-gray-900'
                       }`}>
-                        {item.valueVariance > 0 ? '+' : ''}{item.valueVariance.toFixed(2)} ₽
+                        {Number(item.valueVariance) > 0 ? '+' : ''}{Number(item.valueVariance).toFixed(2)} ₽
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {item.quantityVariance > 0 ? (
+                      {Number(item.quantityVariance) > 0 ? (
                         <Badge className="bg-green-100 text-green-800 border-green-200">
                           Излишек
                         </Badge>
-                      ) : item.quantityVariance < 0 ? (
+                      ) : Number(item.quantityVariance) < 0 ? (
                         <Badge className="bg-red-100 text-red-800 border-red-200">
                           Недостача
                         </Badge>

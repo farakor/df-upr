@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/Badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/Dialog';
 
 import { CreateDocumentData, AddDocumentItemData } from '@/hooks/useDocuments';
 import { useSuppliers } from '@/hooks/useSuppliers';
@@ -22,6 +23,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useProducts } from '@/hooks/useProducts';
 import { useUnits } from '@/hooks/useUnits';
 import { cn } from '@/utils/cn';
+import { SupplierCombobox } from '@/components/common/SupplierCombobox';
 
 const documentSchema = z.object({
   type: z.enum(['RECEIPT', 'TRANSFER', 'WRITEOFF', 'INVENTORY_ADJUSTMENT']),
@@ -65,7 +67,7 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
 
   const { data: suppliers } = useSuppliers();
   const { data: warehouses } = useWarehouses();
-  const { data: products } = useProducts();
+  const { data: products } = useProducts({ isActive: true }); // Показываем только активные товары
   const { data: units } = useUnits();
 
   const {
@@ -73,6 +75,7 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = useForm<DocumentFormData>({
     resolver: zodResolver(documentSchema),
@@ -94,15 +97,22 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
   });
 
   const watchedDate = watch('date');
+  const watchedSupplierId = watch('supplierId');
   const watchedItemProductId = watchItem('productId');
+  const watchedItemUnitId = watchItem('unitId');
   const watchedItemQuantity = watchItem('quantity');
   const watchedItemPrice = watchItem('price');
   const watchedItemExpiryDate = watchItem('expiryDate');
 
+  // Мемоизируем onChange для поставщика
+  const handleSupplierChange = useCallback((value: number) => {
+    setValue('supplierId', value);
+  }, [setValue]);
+
   // Автоматически устанавливаем единицу измерения при выборе товара
   useEffect(() => {
-    if (watchedItemProductId && products?.data) {
-      const product = products.data.find(p => p.id === watchedItemProductId);
+    if (watchedItemProductId && products?.products) {
+      const product = products.products.find(p => p.id === watchedItemProductId);
       if (product) {
         setValueItem('unitId', product.unitId);
       }
@@ -142,6 +152,14 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
     setItems(prev => prev.filter(item => item.tempId !== tempId));
   };
 
+  const handleCloseItemForm = (open: boolean) => {
+    setShowItemForm(open);
+    if (!open) {
+      setEditingItem(null);
+      resetItem();
+    }
+  };
+
   const handleFormSubmit = (data: DocumentFormData) => {
     if (items.length === 0) {
       alert('Добавьте хотя бы одну позицию в документ');
@@ -169,7 +187,7 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
     onSubmit(documentData, itemsData);
   };
 
-  const getProduct = (productId: number) => products?.data?.find(p => p.id === productId);
+  const getProduct = (productId: number) => products?.products?.find(p => p.id === productId);
   const getUnit = (unitId: number) => units?.find(u => u.id === unitId);
   const getSupplier = (supplierId: number) => suppliers?.data?.find(s => s.id === supplierId);
   const getWarehouse = (warehouseId: number) => warehouses?.find(w => w.id === warehouseId);
@@ -225,18 +243,11 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
               {type === 'RECEIPT' && (
                 <div className="space-y-2">
                   <Label htmlFor="supplierId">Поставщик</Label>
-                  <Select onValueChange={(value) => setValue('supplierId', parseInt(value))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите поставщика" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers?.data?.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                          {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SupplierCombobox
+                    value={watchedSupplierId}
+                    onChange={handleSupplierChange}
+                    placeholder="Выберите или создайте поставщика"
+                  />
                   {errors.supplierId && (
                     <p className="text-sm text-red-600">{errors.supplierId.message}</p>
                   )}
@@ -381,148 +392,6 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
           </CardContent>
         </Card>
 
-        {/* Форма добавления позиции */}
-        {showItemForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{editingItem ? 'Редактировать позицию' : 'Добавить позицию'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmitItem(handleAddItem)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Товар */}
-                  <div className="space-y-2">
-                    <Label htmlFor="productId">Товар</Label>
-                    <Select onValueChange={(value) => setValueItem('productId', parseInt(value))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите товар" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products?.data?.map((product) => (
-                          <SelectItem key={product.id} value={product.id.toString()}>
-                            {product.name} {product.article && `(${product.article})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {itemErrors.productId && (
-                      <p className="text-sm text-red-600">{itemErrors.productId.message}</p>
-                    )}
-                  </div>
-
-                  {/* Единица измерения */}
-                  <div className="space-y-2">
-                    <Label htmlFor="unitId">Единица измерения</Label>
-                    <Select onValueChange={(value) => setValueItem('unitId', parseInt(value))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите единицу" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {units?.map((unit) => (
-                          <SelectItem key={unit.id} value={unit.id.toString()}>
-                            {unit.name} ({unit.shortName})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {itemErrors.unitId && (
-                      <p className="text-sm text-red-600">{itemErrors.unitId.message}</p>
-                    )}
-                  </div>
-
-                  {/* Количество */}
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Количество</Label>
-                    <Input
-                      {...registerItem('quantity', { valueAsNumber: true })}
-                      type="number"
-                      step="0.0001"
-                      placeholder="0"
-                    />
-                    {itemErrors.quantity && (
-                      <p className="text-sm text-red-600">{itemErrors.quantity.message}</p>
-                    )}
-                  </div>
-
-                  {/* Цена */}
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Цена за единицу</Label>
-                    <Input
-                      {...registerItem('price', { valueAsNumber: true })}
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                    />
-                    {itemErrors.price && (
-                      <p className="text-sm text-red-600">{itemErrors.price.message}</p>
-                    )}
-                  </div>
-
-                  {/* Номер партии */}
-                  <div className="space-y-2">
-                    <Label htmlFor="batchNumber">Номер партии</Label>
-                    <Input
-                      {...registerItem('batchNumber')}
-                      placeholder="Необязательно"
-                    />
-                  </div>
-
-                  {/* Срок годности */}
-                  <div className="space-y-2">
-                    <Label htmlFor="expiryDate">Срок годности</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !watchedItemExpiryDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {watchedItemExpiryDate ? format(watchedItemExpiryDate, "PPP", { locale: ru }) : "Выберите дату"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={watchedItemExpiryDate}
-                          onSelect={(date) => setValueItem('expiryDate', date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                {/* Итого по позиции */}
-                {watchedItemQuantity && watchedItemPrice && (
-                  <div className="text-right text-lg font-semibold">
-                    Сумма: {(watchedItemQuantity * watchedItemPrice).toFixed(2)} ₽
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowItemForm(false);
-                      setEditingItem(null);
-                      resetItem();
-                    }}
-                  >
-                    Отмена
-                  </Button>
-                  <Button type="submit">
-                    {editingItem ? 'Сохранить' : 'Добавить'}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Кнопки управления */}
         <div className="flex justify-end space-x-2">
           <Button type="button" variant="outline" onClick={onCancel}>
@@ -533,6 +402,156 @@ export function DocumentForm({ type, onSubmit, onCancel, isLoading = false }: Do
           </Button>
         </div>
       </form>
+
+      {/* Форма добавления позиции в модальном окне */}
+      <Dialog open={showItemForm} onOpenChange={handleCloseItemForm}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingItem ? 'Редактировать позицию' : 'Добавить позицию'}</DialogTitle>
+            <DialogDescription>
+              Укажите товар, количество, цену и другие параметры позиции документа
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmitItem(handleAddItem)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Товар */}
+              <div className="space-y-2">
+                <Label htmlFor="productId">Товар</Label>
+                <Select 
+                  value={watchedItemProductId?.toString()} 
+                  onValueChange={(value) => setValueItem('productId', parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите товар" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products?.products?.map((product) => (
+                      <SelectItem key={product.id} value={product.id.toString()}>
+                        {product.name} {product.article && `(${product.article})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {itemErrors.productId && (
+                  <p className="text-sm text-red-600">{itemErrors.productId.message}</p>
+                )}
+              </div>
+
+              {/* Единица измерения */}
+              <div className="space-y-2">
+                <Label htmlFor="unitId">Единица измерения</Label>
+                <Select 
+                  value={watchedItemUnitId?.toString()} 
+                  onValueChange={(value) => setValueItem('unitId', parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите единицу" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {units?.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id.toString()}>
+                        {unit.name} ({unit.shortName})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {itemErrors.unitId && (
+                  <p className="text-sm text-red-600">{itemErrors.unitId.message}</p>
+                )}
+              </div>
+
+              {/* Количество */}
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Количество</Label>
+                <Input
+                  {...registerItem('quantity', { valueAsNumber: true })}
+                  type="number"
+                  step="0.0001"
+                  placeholder="0"
+                />
+                {itemErrors.quantity && (
+                  <p className="text-sm text-red-600">{itemErrors.quantity.message}</p>
+                )}
+              </div>
+
+              {/* Цена */}
+              <div className="space-y-2">
+                <Label htmlFor="price">Цена за единицу</Label>
+                <Input
+                  {...registerItem('price', { valueAsNumber: true })}
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+                {itemErrors.price && (
+                  <p className="text-sm text-red-600">{itemErrors.price.message}</p>
+                )}
+              </div>
+
+              {/* Номер партии */}
+              <div className="space-y-2">
+                <Label htmlFor="batchNumber">Номер партии</Label>
+                <Input
+                  {...registerItem('batchNumber')}
+                  placeholder="Необязательно"
+                />
+              </div>
+
+              {/* Срок годности */}
+              <div className="space-y-2">
+                <Label htmlFor="expiryDate">Срок годности</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !watchedItemExpiryDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {watchedItemExpiryDate ? format(watchedItemExpiryDate, "PPP", { locale: ru }) : "Выберите дату"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={watchedItemExpiryDate}
+                      onSelect={(date) => setValueItem('expiryDate', date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Итого по позиции */}
+            {watchedItemQuantity && watchedItemPrice && (
+              <div className="text-right text-lg font-semibold">
+                Сумма: {(watchedItemQuantity * watchedItemPrice).toFixed(2)} ₽
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowItemForm(false);
+                  setEditingItem(null);
+                  resetItem();
+                }}
+              >
+                Отмена
+              </Button>
+              <Button type="submit">
+                {editingItem ? 'Сохранить' : 'Добавить'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -29,14 +29,6 @@ type RecipeWithIncludes = Recipe & {
       shortName: string;
     };
   })[];
-  menuItems?: {
-    id: number;
-    name: string;
-    category?: {
-      id: number;
-      name: string;
-    } | null;
-  }[];
 };
 
 export interface RecipeIngredientInput {
@@ -164,10 +156,10 @@ export class RecipeService {
     pagination: PaginationOptions = {}
   ): Promise<{ recipes: Recipe[]; total: number; page: number; totalPages: number }> {
     const { page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc' } = pagination;
-    const { search, isActive = true, difficultyLevel, cookingTimeMax } = filters;
+    const { search, isActive, difficultyLevel, cookingTimeMax } = filters;
 
     const where: Prisma.RecipeWhereInput = {
-      isActive,
+      ...(isActive !== undefined && { isActive }),
       ...(difficultyLevel && { difficultyLevel }),
       ...(cookingTimeMax && { cookingTime: { lte: cookingTimeMax } }),
       ...(search && {
@@ -240,11 +232,6 @@ export class RecipeService {
           },
           orderBy: {
             sortOrder: 'asc',
-          },
-        },
-        menuItems: {
-          include: {
-            category: true,
           },
         },
       },

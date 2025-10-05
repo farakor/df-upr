@@ -35,7 +35,9 @@ export const supplierController = {
         return;
       }
       
-      res.json(supplier);
+      res.json({
+        data: supplier
+      });
     } catch (error) {
       res.status(500).json({ 
         message: 'Ошибка при получении поставщика',
@@ -49,7 +51,10 @@ export const supplierController = {
     try {
       const data: CreateSupplierDto = req.body;
       const supplier = await supplierService.create(data);
-      res.status(201).json(supplier);
+      res.status(201).json({
+        data: supplier,
+        message: 'Поставщик успешно создан'
+      });
     } catch (error) {
       res.status(500).json({ 
         message: 'Ошибка при создании поставщика',
@@ -71,7 +76,10 @@ export const supplierController = {
         return;
       }
       
-      res.json(supplier);
+      res.json({
+        data: supplier,
+        message: 'Поставщик успешно обновлен'
+      });
     } catch (error) {
       res.status(500).json({ 
         message: 'Ошибка при обновлении поставщика',

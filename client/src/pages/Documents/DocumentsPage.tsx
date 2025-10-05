@@ -13,6 +13,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 
 import { DocumentForm } from '@/components/forms/DocumentForm';
+import { DocumentViewDialog } from '@/components/common/DocumentViewDialog';
+import { DocumentEditDialog } from '@/components/common/DocumentEditDialog';
 import { 
   useDocuments, 
   useCreateDocument, 
@@ -58,6 +60,8 @@ export function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDocumentType, setCreateDocumentType] = useState<'RECEIPT' | 'TRANSFER' | 'WRITEOFF' | 'INVENTORY_ADJUSTMENT'>('RECEIPT');
+  const [viewingDocumentId, setViewingDocumentId] = useState<number | null>(null);
+  const [editingDocumentId, setEditingDocumentId] = useState<number | null>(null);
 
   const { data: documentsData, isLoading, error } = useDocuments({
     type: typeFilter || undefined,
@@ -95,6 +99,14 @@ export function DocumentsPage() {
 
   const handleCancelDocument = (id: number) => {
     cancelMutation.mutate(id);
+  };
+
+  const handleViewDocument = (id: number) => {
+    setViewingDocumentId(id);
+  };
+
+  const handleEditDocument = (id: number) => {
+    setEditingDocumentId(id);
   };
 
   const filteredDocuments = documentsData?.data.filter(document => {
@@ -136,7 +148,7 @@ export function DocumentsPage() {
           </Button>
           <Button 
             variant="outline"
-            onClick={() => navigate('/documents/transfer')}
+            onClick={() => navigate('/stock-movements/create')}
           >
             <ArrowLeftRight className="h-4 w-4 mr-2" />
             Перемещение
@@ -273,18 +285,28 @@ export function DocumentsPage() {
                     Позиций: {document._count?.items || 0}
                   </span>
                   <span className="font-semibold">
-                    {document.totalAmount.toFixed(2)} ₽
+                    {Number(document.totalAmount).toFixed(2)} ₽
                   </span>
                 </div>
 
                 {/* Действия */}
                 <div className="flex justify-between items-center pt-2 border-t">
                   <div className="flex space-x-1">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewDocument(document.id)}
+                      title="Просмотр"
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     {document.status === 'DRAFT' && (
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditDocument(document.id)}
+                        title="Редактировать"
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     )}
@@ -362,6 +384,21 @@ export function DocumentsPage() {
           </div>
         </div>
       )}
+
+      {/* Диалог просмотра документа */}
+      <DocumentViewDialog
+        documentId={viewingDocumentId}
+        open={viewingDocumentId !== null}
+        onClose={() => setViewingDocumentId(null)}
+      />
+
+      {/* Диалог редактирования документа */}
+      <DocumentEditDialog
+        documentId={editingDocumentId}
+        open={editingDocumentId !== null}
+        onClose={() => setEditingDocumentId(null)}
+        onSuccess={() => setEditingDocumentId(null)}
+      />
     </div>
   );
 }

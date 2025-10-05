@@ -10,12 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/AlertDialog';
 // import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/DropdownMenu';
 
-import { useRecipes, useDeleteRecipe, useCreateRecipe } from '@/hooks/useRecipes';
+import { useRecipes, useDeleteRecipe, useCreateRecipe, useUpdateRecipe } from '@/hooks/useRecipes';
 import { useAuth } from '@/hooks/useAuth';
 import type { RecipeFilters, CreateRecipeData } from '@/types/recipes';
 import { difficultyLabels, DifficultyLevel, type DifficultyLevelType } from '@/types/recipes';
 import { formatCurrency, formatTime } from '@/utils/formatters';
 import { RecipeForm } from '@/components/forms/RecipeForm';
+import { RecipeViewDialog } from '@/components/common/RecipeViewDialog';
 
 const RecipesListPage: React.FC = () => {
   const { state } = useAuth();
@@ -25,16 +26,20 @@ const RecipesListPage: React.FC = () => {
     limit: 20,
     sortBy: 'name',
     sortOrder: 'asc',
-    isActive: true,
+    // isActive не установлен - показываем все рецепты по умолчанию
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recipeToDelete, setRecipeToDelete] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [createFormOpen, setCreateFormOpen] = useState(false);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
 
   const { data: recipesData, isLoading, error } = useRecipes(filters);
   const deleteRecipeMutation = useDeleteRecipe();
   const createRecipeMutation = useCreateRecipe();
+  const updateRecipeMutation = useUpdateRecipe();
 
   const canManageRecipes = useMemo(() => {
     return user?.role === 'ADMIN' || user?.role === 'MANAGER';
@@ -64,6 +69,24 @@ const RecipesListPage: React.FC = () => {
   const handleCreateRecipe = async (data: CreateRecipeData) => {
     await createRecipeMutation.mutateAsync(data);
     setCreateFormOpen(false);
+  };
+
+  const handleUpdateRecipe = async (data: CreateRecipeData) => {
+    if (selectedRecipeId) {
+      await updateRecipeMutation.mutateAsync({ id: selectedRecipeId, data });
+      setEditFormOpen(false);
+      setSelectedRecipeId(null);
+    }
+  };
+
+  const handleViewRecipe = (recipeId: number) => {
+    setSelectedRecipeId(recipeId);
+    setViewDialogOpen(true);
+  };
+
+  const handleEditRecipe = (recipeId: number) => {
+    setSelectedRecipeId(recipeId);
+    setEditFormOpen(true);
   };
 
   const getDifficultyColor = (level?: number) => {
@@ -176,17 +199,18 @@ const RecipesListPage: React.FC = () => {
             </div>
             <div>
               <Select
-                value={filters.isActive === false ? 'inactive' : 'active'}
+                value={filters.isActive === undefined ? 'all' : filters.isActive ? 'active' : 'inactive'}
                 onValueChange={(value) => handleFilterChange({ 
-                  isActive: value === 'active' 
+                  isActive: value === 'all' ? undefined : value === 'active'
                 })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Статус" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Активные</SelectItem>
-                  <SelectItem value="inactive">Неактивные</SelectItem>
+                  <SelectItem value="all">Все рецепты</SelectItem>
+                  <SelectItem value="active">Только активные</SelectItem>
+                  <SelectItem value="inactive">Только неактивные</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -237,7 +261,7 @@ const RecipesListPage: React.FC = () => {
                             className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center"
                             onClick={() => {
                               setOpenMenuId(null);
-                              /* TODO: Просмотр рецепта */
+                              handleViewRecipe(recipe.id);
                             }}
                           >
                             <Eye className="h-4 w-4 mr-2" />
@@ -248,7 +272,7 @@ const RecipesListPage: React.FC = () => {
                               className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center"
                               onClick={() => {
                                 setOpenMenuId(null);
-                                /* TODO: Редактирование рецепта */
+                                handleEditRecipe(recipe.id);
                               }}
                             >
                               <Edit className="h-4 w-4 mr-2" />
@@ -381,6 +405,29 @@ const RecipesListPage: React.FC = () => {
         onClose={() => setCreateFormOpen(false)}
         onSubmit={handleCreateRecipe}
         isLoading={createRecipeMutation.isPending}
+      />
+
+      {/* Форма редактирования рецепта */}
+      <RecipeForm
+        isOpen={editFormOpen}
+        onClose={() => {
+          setEditFormOpen(false);
+          setSelectedRecipeId(null);
+        }}
+        onSubmit={handleUpdateRecipe}
+        isLoading={updateRecipeMutation.isPending}
+        recipeId={selectedRecipeId || undefined}
+      />
+
+      {/* Диалог просмотра рецепта */}
+      <RecipeViewDialog
+        recipeId={selectedRecipeId}
+        isOpen={viewDialogOpen}
+        onClose={() => {
+          setViewDialogOpen(false);
+          setSelectedRecipeId(null);
+        }}
+        onEdit={canManageRecipes ? handleEditRecipe : undefined}
       />
     </div>
   );

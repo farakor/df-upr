@@ -55,18 +55,20 @@ export class SalesService {
           isAvailable: true
         },
         include: {
-          recipe: {
+          menu: true,
+          product: {
             include: {
-              ingredients: {
+              recipe: {
                 include: {
-                  product: true,
-                  unit: true
+                  ingredients: {
+                    include: {
+                      product: true,
+                      unit: true
+                    }
+                  }
                 }
               }
             }
-          },
-          warehouseMenuItems: {
-            where: { warehouseId: data.warehouseId }
           }
         }
       });
@@ -75,19 +77,32 @@ export class SalesService {
         throw new Error('Некоторые позиции меню недоступны');
       }
 
-      // Проверяем доступность блюд на складе
-      for (const menuItem of menuItems) {
-        const warehouseMenuItem = menuItem.warehouseMenuItems[0];
-        if (!warehouseMenuItem || !warehouseMenuItem.isAvailable) {
-          throw new Error(`Блюдо "${menuItem.name}" недоступно на данном складе`);
+      // Проверяем, что меню позиций доступны на складе
+      const menuIds = [...new Set(menuItems.map(mi => mi.menuId).filter(Boolean))] as number[];
+      
+      if (menuIds.length > 0) {
+        const activeWarehouseMenus = await tx.warehouseMenu.findMany({
+          where: {
+            warehouseId: data.warehouseId,
+            menuId: { in: menuIds },
+            isActive: true
+          },
+          select: { menuId: true }
+        });
+
+        const activeMenuIds = new Set(activeWarehouseMenus.map(wm => wm.menuId));
+
+        for (const menuItem of menuItems) {
+          if (menuItem.menuId && !activeMenuIds.has(menuItem.menuId)) {
+            throw new Error(`Блюдо "${menuItem.name}" недоступно на данном складе`);
+          }
         }
       }
 
       // Подготавливаем данные для создания продажи
       const saleItems = data.items.map(item => {
         const menuItem = menuItems.find(mi => mi.id === item.menuItemId)!;
-        const warehouseMenuItem = menuItem.warehouseMenuItems[0];
-        const price = item.price || Number(warehouseMenuItem.priceOverride) || Number(menuItem.price);
+        const price = item.price || Number(menuItem.price);
         const discountAmount = (price * item.quantity * item.discountPercent) / 100;
         const total = (price * item.quantity) - discountAmount;
 
@@ -124,7 +139,11 @@ export class SalesService {
             include: {
               menuItem: {
                 include: {
-                  recipe: true
+                  product: {
+                    include: {
+                      recipe: true
+                    }
+                  }
                 }
               }
             }
@@ -136,10 +155,10 @@ export class SalesService {
 
       // Списываем ингредиенты по рецептурам
       for (const saleItem of sale.items) {
-        if (saleItem.menuItem.recipe) {
+        if (saleItem.menuItem.product?.recipe) {
           await this.createProductionLog({
             warehouseId: data.warehouseId,
-            recipeId: saleItem.menuItem.recipe.id,
+            recipeId: saleItem.menuItem.product.recipe.id,
             quantity: Number(saleItem.quantity),
             producedAt: new Date()
           }, cashierId, tx);
@@ -220,7 +239,11 @@ export class SalesService {
           include: {
             menuItem: {
               include: {
-                recipe: true
+                product: {
+                  include: {
+                    recipe: true
+                  }
+                }
               }
             }
           }
@@ -559,36 +582,51 @@ export class SalesService {
   }
 
   async getAvailableMenuForWarehouse(warehouseId: number) {
-    // Получаем доступные позиции меню для склада
+    // Получаем активные меню для склада
+    const warehouseMenus = await prisma.warehouseMenu.findMany({
+      where: {
+        warehouseId,
+        isActive: true
+      },
+      select: { menuId: true }
+    });
+
+    const activeMenuIds = warehouseMenus.map(wm => wm.menuId);
+
+    if (activeMenuIds.length === 0) {
+      return [];
+    }
+
+    // Получаем доступные позиции меню из активных меню
     const menuItems = await prisma.menuItem.findMany({
       where: {
         isActive: true,
         isAvailable: true,
-        warehouseMenuItems: {
-          some: {
-            warehouseId,
-            isAvailable: true
-          }
-        }
+        menuId: { in: activeMenuIds }
       },
       include: {
         category: true,
-        recipe: {
+        product: {
           include: {
-            ingredients: {
+            unit: true,
+            recipe: {
               include: {
-                product: true,
-                unit: true
+                ingredients: {
+                  include: {
+                    product: {
+                      include: {
+                        unit: true
+                      }
+                    },
+                    unit: true
+                  }
+                }
               }
             }
           }
-        },
-        warehouseMenuItems: {
-          where: { warehouseId }
         }
       },
       orderBy: [
-        { category: { sortOrder: 'asc' } },
         { sortOrder: 'asc' },
         { name: 'asc' }
       ]
@@ -601,11 +639,11 @@ export class SalesService {
       let isAvailable = true;
       let availabilityInfo = null;
 
-      if (menuItem.recipe) {
+      if (menuItem.product?.recipe) {
         // Проверяем наличие ингредиентов
         const ingredientAvailability = [];
 
-        for (const ingredient of menuItem.recipe.ingredients) {
+        for (const ingredient of menuItem.product.recipe.ingredients) {
           const stockBalance = await prisma.stockBalance.findUnique({
             where: {
               warehouseId_productId: {
@@ -637,18 +675,15 @@ export class SalesService {
         };
       }
 
-      const warehouseMenuItem = menuItem.warehouseMenuItems[0];
-      const finalPrice = Number(warehouseMenuItem.priceOverride) || Number(menuItem.price);
-
       availableMenuItems.push({
         id: menuItem.id,
         name: menuItem.name,
         description: menuItem.description,
-        price: finalPrice,
+        price: Number(menuItem.price),
         costPrice: menuItem.costPrice,
         imageUrl: menuItem.imageUrl,
         category: menuItem.category,
-        isAvailable: isAvailable && warehouseMenuItem.isAvailable,
+        isAvailable,
         availabilityInfo,
         sortOrder: menuItem.sortOrder
       });

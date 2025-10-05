@@ -191,7 +191,7 @@ export const useCreateAdjustmentDocuments = () => {
       if (Array.isArray(data) && data.length > 0) {
         toast.success(`Создано ${data.length} корректировочных документов`);
       } else {
-        toast.info(data.message || 'Корректировочные документы не требуются');
+        toast(data.message || 'Корректировочные документы не требуются');
       }
     },
     onError: (error: any) => {

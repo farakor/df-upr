@@ -14,7 +14,7 @@ export const useSale = (id: number) => {
   return useQuery({
     queryKey: ['sale', id],
     queryFn: () => salesApi.getSaleById(id),
-    select: (data) => data.data.data,
+    select: (data) => data?.data?.data || data?.data,
     enabled: !!id,
   });
 };
@@ -23,7 +23,7 @@ export const useAvailableMenu = (warehouseId: number) => {
   return useQuery({
     queryKey: ['availableMenu', warehouseId],
     queryFn: () => salesApi.getAvailableMenu(warehouseId),
-    select: (data) => data.data.data,
+    select: (data) => data?.data?.data || data?.data,
     enabled: !!warehouseId,
     staleTime: 5 * 60 * 1000, // 5 минут
   });
@@ -38,7 +38,7 @@ export const useSalesStats = (params: {
   return useQuery({
     queryKey: ['salesStats', params],
     queryFn: () => salesApi.getSalesStats(params),
-    select: (data) => data.data.data,
+    select: (data) => data?.data?.data || data?.data,
     enabled: !!(params.dateFrom && params.dateTo),
   });
 };
@@ -47,7 +47,7 @@ export const useDailySummary = (params?: { warehouseId?: number; date?: string }
   return useQuery({
     queryKey: ['dailySummary', params],
     queryFn: () => salesApi.getDailySummary(params),
-    select: (data) => data.data.data,
+    select: (data) => data?.data?.data || data?.data,
     refetchInterval: 5 * 60 * 1000, // Обновляем каждые 5 минут
   });
 };

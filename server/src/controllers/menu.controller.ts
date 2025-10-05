@@ -1,10 +1,124 @@
 import { Request, Response } from 'express';
-import { MenuService, MenuCategoryFilters, MenuItemFilters, PaginationOptions } from '@/services/menu.service';
+import { MenuService, MenuFilters, MenuCategoryFilters, MenuItemFilters, PaginationOptions } from '@/services/menu.service';
 import { logger } from '@/utils/logger';
 
 const menuService = new MenuService();
 
 export class MenuController {
+  // === МЕНЮ ===
+
+  async createMenu(req: Request, res: Response): Promise<void> {
+    try {
+      const menu = await menuService.createMenu(req.body);
+      
+      res.status(201).json({
+        success: true,
+        data: menu,
+        message: 'Меню успешно создано',
+      });
+    } catch (error) {
+      logger.error('Error creating menu', { error: error instanceof Error ? error.message : error });
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Ошибка создания меню',
+      });
+    }
+  }
+
+  async getMenus(req: Request, res: Response): Promise<void> {
+    try {
+      const filters: MenuFilters = {
+        search: req.query.search as string,
+        isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+      };
+
+      const pagination: PaginationOptions = {
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+        sortBy: req.query.sortBy as string || 'createdAt',
+        sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+      };
+
+      const result = await menuService.getMenus(filters, pagination);
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      logger.error('Error fetching menus', { error: error instanceof Error ? error.message : error });
+      res.status(500).json({
+        success: false,
+        message: 'Ошибка получения списка меню',
+      });
+    }
+  }
+
+  async getMenuById(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      const menu = await menuService.getMenuById(id);
+      
+      if (!menu) {
+        res.status(404).json({
+          success: false,
+          message: 'Меню не найдено',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: menu,
+      });
+    } catch (error) {
+      logger.error('Error fetching menu', { error: error instanceof Error ? error.message : error });
+      res.status(500).json({
+        success: false,
+        message: 'Ошибка получения меню',
+      });
+    }
+  }
+
+  async updateMenu(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      const menu = await menuService.updateMenu(id, req.body);
+      
+      res.json({
+        success: true,
+        data: menu,
+        message: 'Меню успешно обновлено',
+      });
+    } catch (error) {
+      logger.error('Error updating menu', { error: error instanceof Error ? error.message : error });
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Ошибка обновления меню',
+      });
+    }
+  }
+
+  async deleteMenu(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      await menuService.deleteMenu(id);
+      
+      res.json({
+        success: true,
+        message: 'Меню успешно удалено',
+      });
+    } catch (error) {
+      logger.error('Error deleting menu', { error: error instanceof Error ? error.message : error });
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Ошибка удаления меню',
+      });
+    }
+  }
+
   // === КАТЕГОРИИ МЕНЮ ===
 
   async createMenuCategory(req: Request, res: Response): Promise<void> {
@@ -29,7 +143,7 @@ export class MenuController {
     try {
       const filters: MenuCategoryFilters = {
         search: req.query.search as string,
-        isActive: req.query.isActive !== 'false',
+        isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
       };
 
       const pagination: PaginationOptions = {
@@ -121,11 +235,11 @@ export class MenuController {
 
   async createMenuItem(req: Request, res: Response): Promise<void> {
     try {
-      const menuItem = await menuService.createMenuItem(req.body);
+      const item = await menuService.createMenuItem(req.body);
       
       res.status(201).json({
         success: true,
-        data: menuItem,
+        data: item,
         message: 'Позиция меню успешно создана',
       });
     } catch (error) {
@@ -141,10 +255,11 @@ export class MenuController {
     try {
       const filters: MenuItemFilters = {
         search: req.query.search as string,
+        menuId: req.query.menuId ? parseInt(req.query.menuId as string) : undefined,
         categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined,
-        recipeId: req.query.recipeId ? parseInt(req.query.recipeId as string) : undefined,
+        productId: req.query.productId ? parseInt(req.query.productId as string) : undefined,
         isAvailable: req.query.isAvailable !== undefined ? req.query.isAvailable === 'true' : undefined,
-        isActive: req.query.isActive !== 'false',
+        isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
         priceMin: req.query.priceMin ? parseFloat(req.query.priceMin as string) : undefined,
         priceMax: req.query.priceMax ? parseFloat(req.query.priceMax as string) : undefined,
         warehouseId: req.query.warehouseId ? parseInt(req.query.warehouseId as string) : undefined,
@@ -175,9 +290,9 @@ export class MenuController {
   async getMenuItemById(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
-      const menuItem = await menuService.getMenuItemById(id);
+      const item = await menuService.getMenuItemById(id);
       
-      if (!menuItem) {
+      if (!item) {
         res.status(404).json({
           success: false,
           message: 'Позиция меню не найдена',
@@ -187,7 +302,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: menuItem,
+        data: item,
       });
     } catch (error) {
       logger.error('Error fetching menu item', { error: error instanceof Error ? error.message : error });
@@ -201,11 +316,11 @@ export class MenuController {
   async updateMenuItem(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id);
-      const menuItem = await menuService.updateMenuItem(id, req.body);
+      const item = await menuService.updateMenuItem(id, req.body);
       
       res.json({
         success: true,
-        data: menuItem,
+        data: item,
         message: 'Позиция меню успешно обновлена',
       });
     } catch (error) {
@@ -235,60 +350,85 @@ export class MenuController {
     }
   }
 
-  // === НАСТРОЙКИ МЕНЮ ПО СКЛАДАМ ===
+  // === ПРИВЯЗКА МЕНЮ К СКЛАДАМ ===
 
-  async setWarehouseMenuItem(req: Request, res: Response): Promise<void> {
+  async addWarehouseMenu(req: Request, res: Response): Promise<void> {
     try {
-      const warehouseMenuItem = await menuService.setWarehouseMenuItem(req.body);
+      const warehouseMenu = await menuService.addWarehouseMenu(req.body);
       
-      res.json({
+      res.status(201).json({
         success: true,
-        data: warehouseMenuItem,
-        message: 'Настройка позиции меню для склада успешно сохранена',
+        data: warehouseMenu,
+        message: 'Меню успешно привязано к складу',
       });
     } catch (error) {
-      logger.error('Error setting warehouse menu item', { error: error instanceof Error ? error.message : error });
+      logger.error('Error adding warehouse menu', { error: error instanceof Error ? error.message : error });
       res.status(400).json({
         success: false,
-        message: error instanceof Error ? error.message : 'Ошибка настройки позиции меню для склада',
+        message: error instanceof Error ? error.message : 'Ошибка привязки меню к складу',
       });
     }
   }
 
-  async getWarehouseMenuItems(req: Request, res: Response): Promise<void> {
+  async updateWarehouseMenu(req: Request, res: Response): Promise<void> {
     try {
       const warehouseId = parseInt(req.params.warehouseId);
-      const items = await menuService.getWarehouseMenuItems(warehouseId);
+      const menuId = parseInt(req.params.menuId);
+      
+      const warehouseMenu = await menuService.updateWarehouseMenu(
+        warehouseId,
+        menuId,
+        req.body
+      );
       
       res.json({
         success: true,
-        data: items,
+        data: warehouseMenu,
+        message: 'Привязка меню к складу успешно обновлена',
       });
     } catch (error) {
-      logger.error('Error fetching warehouse menu items', { error: error instanceof Error ? error.message : error });
+      logger.error('Error updating warehouse menu', { error: error instanceof Error ? error.message : error });
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Ошибка обновления привязки меню к складу',
+      });
+    }
+  }
+
+  async removeWarehouseMenu(req: Request, res: Response): Promise<void> {
+    try {
+      const warehouseId = parseInt(req.params.warehouseId);
+      const menuId = parseInt(req.params.menuId);
+      
+      await menuService.removeWarehouseMenu(warehouseId, menuId);
+      
+      res.json({
+        success: true,
+        message: 'Меню успешно отвязано от склада',
+      });
+    } catch (error) {
+      logger.error('Error removing warehouse menu', { error: error instanceof Error ? error.message : error });
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Ошибка отвязки меню от склада',
+      });
+    }
+  }
+
+  async getWarehouseMenus(req: Request, res: Response): Promise<void> {
+    try {
+      const warehouseId = parseInt(req.params.warehouseId);
+      const menus = await menuService.getWarehouseMenus(warehouseId);
+      
+      res.json({
+        success: true,
+        data: menus,
+      });
+    } catch (error) {
+      logger.error('Error fetching warehouse menus', { error: error instanceof Error ? error.message : error });
       res.status(500).json({
         success: false,
-        message: 'Ошибка получения настроек меню для склада',
-      });
-    }
-  }
-
-  async removeWarehouseMenuItem(req: Request, res: Response): Promise<void> {
-    try {
-      const warehouseId = parseInt(req.params.warehouseId);
-      const menuItemId = parseInt(req.params.menuItemId);
-      
-      await menuService.removeWarehouseMenuItem(warehouseId, menuItemId);
-      
-      res.json({
-        success: true,
-        message: 'Настройка позиции меню для склада успешно удалена',
-      });
-    } catch (error) {
-      logger.error('Error removing warehouse menu item', { error: error instanceof Error ? error.message : error });
-      res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Ошибка удаления настройки позиции меню для склада',
+        message: 'Ошибка получения меню склада',
       });
     }
   }
@@ -298,11 +438,11 @@ export class MenuController {
   async getAvailableMenu(req: Request, res: Response): Promise<void> {
     try {
       const warehouseId = parseInt(req.params.warehouseId);
-      const menu = await menuService.getAvailableMenu(warehouseId);
+      const result = await menuService.getAvailableMenu(warehouseId);
       
       res.json({
         success: true,
-        data: menu,
+        data: result,
       });
     } catch (error) {
       logger.error('Error fetching available menu', { error: error instanceof Error ? error.message : error });
@@ -318,20 +458,28 @@ export class MenuController {
   async checkMenuItemAvailability(req: Request, res: Response): Promise<void> {
     try {
       const menuItemId = parseInt(req.params.menuItemId);
-      const warehouseId = parseInt(req.params.warehouseId);
-      const quantity = req.query.quantity ? parseFloat(req.query.quantity as string) : 1;
+      const warehouseId = parseInt(req.query.warehouseId as string);
+      const quantity = req.query.quantity ? parseInt(req.query.quantity as string) : 1;
+      
+      if (!warehouseId) {
+        res.status(400).json({
+          success: false,
+          message: 'Не указан ID склада',
+        });
+        return;
+      }
 
-      const availability = await menuService.checkMenuItemAvailability(menuItemId, warehouseId, quantity);
+      const result = await menuService.checkMenuItemAvailability(menuItemId, warehouseId, quantity);
       
       res.json({
         success: true,
-        data: availability,
+        data: result,
       });
     } catch (error) {
       logger.error('Error checking menu item availability', { error: error instanceof Error ? error.message : error });
       res.status(500).json({
         success: false,
-        message: 'Ошибка проверки доступности блюда',
+        message: error instanceof Error ? error.message : 'Ошибка проверки доступности блюда',
       });
     }
   }

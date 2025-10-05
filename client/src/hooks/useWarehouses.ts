@@ -72,7 +72,7 @@ const warehousesApi = {
     search?: string;
   }) => {
     const response = await api.get(`/warehouses/${id}/stock-balances`, { params });
-    return response.data || response;
+    return response;
   }
 };
 
